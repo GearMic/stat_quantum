@@ -40,6 +40,20 @@ void printc(double complex z)
     printf("%f + i%f\n", creal(z), cimag(z));
 }
 
+void export_csv_double_2d(FILE* file, double** arr, const unsigned int rows, const unsigned int cols)
+{
+    double test = arr[0][0];
+    for (int row=0; row<rows; row++) {
+        for (int col=0; col<cols; col++) {
+            // fprintf(file, "%f%s", arr[row][col], (row==rows-1 ? "":","));
+            fprintf(file, "%f%s", (double)1, (col==cols-1 ? "":","));
+            // fprintf(file, "l, ");
+        };
+        fprintf(file, "\n");
+    };
+    // fprintf(file, "test");
+}
+
 
 
 // big functions
@@ -72,7 +86,7 @@ void metropolis_step(double* xj)
 int main()
 {
     double x[N+1];
-    const unsigned int N_measurements = 1+Nt*(N-1);
+    const unsigned int N_measurements = Ne * (1 + Nt * (N-1));
     double measurements[N_measurements][N+1];
 
     for (int i=0; i<N+1; i++) {
@@ -91,14 +105,25 @@ int main()
 
     // metropolis algorithm
     memcpy(measurements[0], x, (N+1)*sizeof(double)); // measure initial lattice configuration
-    for (int j=0; j<Nt; j++) {
-        for (int i=1; i<N; i++) {
-            // Ni metropolis steps on the lattice site 
-            for (int k=0; k<Ni; k++) {
-                metropolis_step(x+i);
-            }
-            // measure the new lattice configuration
-            memcpy(measurements[1+j*(N-1)+i-1], x, (N+1)*sizeof(double)); // TODO: fix the index
+    unsigned int measure_index = 1;
+    for (int l=0; l<Ne; l++) {
+        for (int j=0; j<Nt; j++) {
+            for (int i=1; i<N; i++) {
+                // Ni metropolis steps on the lattice site 
+                for (int k=0; k<Ni; k++) {
+                    metropolis_step(x+i);
+                }
+                // measure the new lattice configuration
+                // unsigned int measure_index = l*(1+j*(N-1)+i-1);
+                memcpy(measurements[measure_index], x, (N+1)*sizeof(double));
+                measure_index++;
+            };
         };
-    };
+    }
+    printf("%i %i\n", N_measurements, measure_index);
+
+    // write to csv
+    FILE* file = fopen("test.csv", "w");
+    export_csv_double_2d(file, measurements, N_measurements, N+1);
+    fclose(file);
 }
