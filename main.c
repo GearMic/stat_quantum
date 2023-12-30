@@ -1,11 +1,10 @@
+// clang -o a main.c -lm
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 #include <complex.h>
-
-// #ifdef _Imaginary_I
-// #define __STDC_IEC_559_COMPLEX__
-// #endif
+#include <string.h>
 
 //// paramters
 // boundary
@@ -24,10 +23,22 @@ const double lambda = 0.;
 const double xlower = 0.; // is this needed?
 const double xupper = 1.;
 // simulation parameters
-Nt = 20 // number of Monte Carlo iterations
-Ne = 1 // number of initial lattice configurations generated TODO: is this correct?
-Ni = 3 // Number (interval) of Markov iterations between measurements TODO: is this correct?
+const unsigned int Nt = 20; // number of Monte Carlo iterations
+const unsigned int Ne = 1; // TODO: unused right now // number of initial lattice configurations generated TODO: is this correct?
+const unsigned int Ni = 3; // Number (interval) of Markov iterations between measurements TODO: is this correct?
 
+
+
+// helper functions
+double frand(double lower, double upper)
+{
+    return lower + (upper - lower) * ((double)rand() / RAND_MAX);
+}
+
+void printc(double complex z)
+{
+    printf("%f + i%f\n", creal(z), cimag(z));
+}
 
 
 
@@ -35,11 +46,10 @@ Ni = 3 // Number (interval) of Markov iterations between measurements TODO: is t
 double complex action(double x0, double x1)
 {
     double V = 1./2. * pow(2, mu) * pow(2, x0) + lambda * pow(4, x0); // anharmonic oscillator potential
-    printf("V: %f \n", V);
     return a * (m0 * (x1-x0) / a + V);
 }
 
-double metropolis_step(double* xj) 
+void metropolis_step(double* xj) 
 {
     double xjp = frand(xlower, xupper);
     // double S_xj = action(*xj, *(xj+1));
@@ -58,38 +68,37 @@ double metropolis_step(double* xj)
 }
 
 
-// helper functions
-double frand(double lower, double upper)
-{
-    return lower + (upper - lower) * ((double)rand() / RAND_MAX);
-}
-
-void printc(double complex z)
-{
-    printf("%f + i%f\n", creal(z), cimag(z));
-}
-
-
-// // general
-// N = 1e2;
-// m0 = 1.0;
-// // time step
-// epsilon = 0.1;
-// a = I * epsilon;
-// // potential
-// mu = 1.0;
-// lambda = 0.;
-
 
 int main()
 {
-    double x[N];
+    double x[N+1];
+    const unsigned int N_measurements = 1+Nt*(N-1);
+    double measurements[N_measurements][N+1];
 
-    for (int i=0; i<N; i++) {
+    for (int i=0; i<N+1; i++) {
         x[i] = frand(xlower, xupper);
         // printf("%i %f \n", i, x[i]);
-        printc(action(x[i], x[i+1]));
+        // printc(action(x[i], x[i+1]));
     };
 
-    // double imaginary a = I * epsilon;
+    // initialize boundary values
+    x[0] = x0;
+    x[N] = xN;
+    for (int i=0; i<N_measurements; i++) {
+        measurements[i][0] = x0;
+        measurements[i][N] = xN;
+    }
+
+    // metropolis algorithm
+    memcpy(measurements[0], x, (N+1)*sizeof(double)); // measure initial lattice configuration
+    for (int j=0; j<Nt; j++) {
+        for (int i=1; i<N; i++) {
+            // Ni metropolis steps on the lattice site 
+            for (int k=0; k<Ni; k++) {
+                metropolis_step(x+i);
+            }
+            // measure the new lattice configuration
+            memcpy(measurements[1+j*(N-1)+i-1], x, (N+1)*sizeof(double)); // TODO: fix the index
+        };
+    };
 }
