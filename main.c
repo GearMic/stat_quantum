@@ -8,8 +8,8 @@
 
 //// paramters
 // boundary
-const double x0 = 5.0;
-const double xN = 5.0;
+const double x0 = 0.0;
+const double xN = 0.0;
 // general
 const int N = 1e2;
 const double m0 = 1.0;
@@ -20,12 +20,13 @@ double complex a = I * epsilon;
 const double mu = 1.0;
 const double lambda = 0.;
 // x range
-const double xlower = 0.; // is this needed?
-const double xupper = 1.;
+const double xlower = -2.; // is this needed?
+const double xupper = 2.;
 // simulation parameters
 const unsigned int Nt = 20; // number of Monte Carlo iterations
-const unsigned int Ne = 1; // TODO: unused right now // number of initial lattice configurations generated TODO: is this correct?
-const unsigned int Ni = 3; // Number (interval) of Markov iterations between measurements TODO: is this correct?
+const unsigned int Ne = 3; // number of initial lattice configurations generated TODO: is this correct?
+const unsigned int Ni = 50; // Number (interval) of Markov iterations between measurements TODO: is this correct?
+const unsigned int Nm = 100;
 
 
 
@@ -40,13 +41,12 @@ void printc(double complex z)
     printf("%f + i%f\n", creal(z), cimag(z));
 }
 
-void export_csv_double_2d(FILE* file, double** arr, const unsigned int rows, const unsigned int cols)
+void export_csv_double_2d(FILE* file, double arr[][N+1], const unsigned int rows, const unsigned int cols) // TODO: find a better way to pass the array
 {
-    double test = arr[0][0];
     for (int row=0; row<rows; row++) {
         for (int col=0; col<cols; col++) {
-            // fprintf(file, "%f%s", arr[row][col], (row==rows-1 ? "":","));
-            fprintf(file, "%f%s", (double)1, (col==cols-1 ? "":","));
+            fprintf(file, "%f%s", arr[row][col], (col==cols-1 ? "":","));
+            // fprintf(file, "%f%s", (double)1, (col==cols-1 ? "":","));
             // fprintf(file, "l, ");
         };
         fprintf(file, "\n");
@@ -85,9 +85,19 @@ void metropolis_step(double* xj)
 
 int main()
 {
+    printf("a\n");
+
     double x[N+1];
-    const unsigned int N_measurements = Ne * (1 + Nt * (N-1));
+    // const unsigned int N_measurements = Ne * (1 + Nt * (N-1));
+    // const unsigned int N_measurements = 1 + Ne * Nm;
+    const unsigned int N_measurements = Ne * (1 + Nt);
     double measurements[N_measurements][N+1];
+
+    // double x[N+1];
+    // const unsigned int N_measurements = Ne * (1 + Nt * (N-1));
+    // double measurements[N_measurements][N+1];
+
+    printf("a\n");
 
     for (int i=0; i<N+1; i++) {
         x[i] = frand(xlower, xupper);
@@ -95,6 +105,8 @@ int main()
         // printc(action(x[i], x[i+1]));
     };
 
+    printf("a\n");
+    
     // initialize boundary values
     x[0] = x0;
     x[N] = xN;
@@ -103,11 +115,14 @@ int main()
         measurements[i][N] = xN;
     }
 
+    printf("a\n");
+
     // metropolis algorithm
     memcpy(measurements[0], x, (N+1)*sizeof(double)); // measure initial lattice configuration
     unsigned int measure_index = 1;
     for (int l=0; l<Ne; l++) {
         for (int j=0; j<Nt; j++) {
+            for (int k=0; k<Ni; k++) {
             for (int i=1; i<N; i++) {
                 // Ni metropolis steps on the lattice site 
                 for (int k=0; k<Ni; k++) {
@@ -115,15 +130,25 @@ int main()
                 }
                 // measure the new lattice configuration
                 // unsigned int measure_index = l*(1+j*(N-1)+i-1);
-                memcpy(measurements[measure_index], x, (N+1)*sizeof(double));
-                measure_index++;
+                // if (i > N-Nm) {
+                    // memcpy(measurements[measure_index], x, (N+1)*sizeof(double));
+                    // measure_index++;
+                // }
             };
+            };
+            memcpy(measurements[measure_index], x, (N+1)*sizeof(double));
+            measure_index++;
         };
     }
     printf("%i %i\n", N_measurements, measure_index);
+    printf("%i %i\n", N_measurements, N+1);
+    
+    printf("a\n");
 
     // write to csv
     FILE* file = fopen("test.csv", "w");
     export_csv_double_2d(file, measurements, N_measurements, N+1);
     fclose(file);
+
+    printf("a\n");
 }
