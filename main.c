@@ -25,8 +25,8 @@ const double xupper = 2.;
 // simulation parameters
 const unsigned int Nt = 20; // number of Monte Carlo iterations
 const unsigned int Ne = 3; // number of initial lattice configurations generated TODO: is this correct?
-const unsigned int Ni = 50; // Number (interval) of Markov iterations between measurements TODO: is this correct?
-const unsigned int Nm = 100;
+const unsigned int N_montecarlo = 10; // Number of Monte Carlo iterations between measurements
+const unsigned int N_markov = 1; // Number of Markov iterations on each lattice point
 
 
 
@@ -57,19 +57,24 @@ void export_csv_double_2d(FILE* file, double arr[][N+1], const unsigned int rows
 
 
 // big functions
-double complex action(double x0, double x1)
+// double complex action(double x0, double x1)
+// {
+//     double V = 1./2. * pow(2, mu) * pow(2, x0) + lambda * pow(4, x0); // anharmonic oscillator potential
+//     return a * (m0 * (x1-x0) / cpow(a, 2) + V);
+// }
+
+double action(double x0, double x1)
 {
     double V = 1./2. * pow(2, mu) * pow(2, x0) + lambda * pow(4, x0); // anharmonic oscillator potential
-    return a * (m0 * (x1-x0) / a + V);
+    return epsilon * (m0 * (x1-x0) / cpow(epsilon, 2) + V);
 }
 
 void metropolis_step(double* xj) 
 {
     double xjp = frand(xlower, xupper);
-    // double S_xj = action(*xj, *(xj+1));
-    // double S_xjp = action(*xj, xjp);
-    // double S_delta = S_xjp - S_xj;
-    double S_delta = cabs(action(*xj, xjp)) - cabs(action(*xj, *(xj+1))); // TODO: is this correct?
+    // double S_delta = cabs(action(*xj, xjp)) - cabs(action(*xj, *(xj+1)));
+    // double S_delta = cabs(action(*xj, xjp) - action(*xj, *(xj+1)));
+    double S_delta = action(*xj, xjp) - action(*xj, *(xj+1));
 
     if (S_delta <= 0) {
         *xj = xjp;
@@ -122,20 +127,15 @@ int main()
     unsigned int measure_index = 1;
     for (int l=0; l<Ne; l++) {
         for (int j=0; j<Nt; j++) {
-            for (int k=0; k<Ni; k++) {
+            for (int k=0; k<N_montecarlo; k++) {
             for (int i=1; i<N; i++) {
                 // Ni metropolis steps on the lattice site 
-                for (int k=0; k<Ni; k++) {
+                for (int o=0; o<N_markov; o++) {
                     metropolis_step(x+i);
                 }
-                // measure the new lattice configuration
-                // unsigned int measure_index = l*(1+j*(N-1)+i-1);
-                // if (i > N-Nm) {
-                    // memcpy(measurements[measure_index], x, (N+1)*sizeof(double));
-                    // measure_index++;
-                // }
             };
             };
+            // measure the new lattice configuration
             memcpy(measurements[measure_index], x, (N+1)*sizeof(double));
             measure_index++;
         };
@@ -146,7 +146,7 @@ int main()
     printf("a\n");
 
     // write to csv
-    FILE* file = fopen("test.csv", "w");
+    FILE* file = fopen("out.csv", "w");
     export_csv_double_2d(file, measurements, N_measurements, N+1);
     fclose(file);
 
