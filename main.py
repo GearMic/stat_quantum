@@ -11,10 +11,10 @@ rows, cols = measurements.shape
 print(measurements.shape)
 t = range(cols)
 
-for row in range(rows):
+for row in range(3):
     plt.plot(t, measurements[row])
 
-plt.ylim(-3, 3)
+# plt.ylim(-3, 3)
 
 i=0
 while True:
