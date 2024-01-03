@@ -2,17 +2,26 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import os.path
 
+# ax = plt.gca()
 
-measurements = np.genfromtxt('test.csv', delimiter=',')#, skip_header=5, usecols=data_usecols, converters=data_converters)
+measurements = np.genfromtxt('out.csv', delimiter=',')#, skip_header=5, usecols=data_usecols, converters=data_converters)
 rows, cols = measurements.shape
 print(measurements.shape)
 t = range(cols)
 
 for row in range(rows):
-    # if row % rows == 0:
-    #     plt.plot(t, measurements[row])
-    #     print('test')
     plt.plot(t, measurements[row])
-    print(measurements.shape)
-plt.show()
+
+plt.ylim(-3, 3)
+
+i=0
+while True:
+    filename = "plot/plot%i.png" % i
+    if os.path.isfile(filename):
+        i += 1
+        continue
+
+    plt.savefig(filename, dpi=200)
+    break
