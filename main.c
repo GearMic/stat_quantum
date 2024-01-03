@@ -5,9 +5,10 @@
 #include <math.h>
 #include <complex.h>
 #include <string.h>
+#include <time.h>
 
-//// paramters
-// boundary
+//// parameters
+// boundary values
 const double x0 = 0.0;
 const double xN = 0.0;
 // general
@@ -35,6 +36,9 @@ double Delta;
 // helper functions
 double frand(double lower, double upper)
 {
+    static int seed;
+    seed = rand();
+    srand(seed);
     return lower + (upper - lower) * ((double)rand() / RAND_MAX);
 }
 
@@ -50,17 +54,62 @@ void printc(double complex z)
     printf("%f + i%f\n", creal(z), cimag(z));
 }
 
-void export_csv_double_2d(FILE* file, double arr[][N+1], const unsigned int rows, const unsigned int cols) // TODO: find a better way to pass the array
+void export_csv_double_1d(FILE* file, const unsigned int cols, double arr[cols])
+{
+    for (int col=0; col<cols; col++) {
+        fprintf(file, "%f%s", arr[col], (col==cols-1 ? "":","));
+    };
+    fprintf(file, "\n");
+}
+
+// void export_csv_double_2d(FILE* file, const unsigned int rows, const unsigned int cols, double arr[rows][cols])
+// {
+//     for (int row=0; row<rows; row++) {
+//         for (int col=0; col<cols; col++) {
+//             fprintf(file, "%f%s", arr[row][col], (col==cols-1 ? "":","));
+//             // fprintf(file, "%f%s", (double)1, (col==cols-1 ? "":","));
+//             // fprintf(file, "l, ");
+//         };
+//         fprintf(file, "\n");
+//     };
+//     // fprintf(file, "test");
+// }
+
+void export_csv_double_2d(FILE* file, const unsigned int rows, const unsigned int cols, double arr[rows][cols])
 {
     for (int row=0; row<rows; row++) {
-        for (int col=0; col<cols; col++) {
-            fprintf(file, "%f%s", arr[row][col], (col==cols-1 ? "":","));
-            // fprintf(file, "%f%s", (double)1, (col==cols-1 ? "":","));
-            // fprintf(file, "l, ");
-        };
-        fprintf(file, "\n");
+        export_csv_double_1d(file, cols, arr[row]);
     };
-    // fprintf(file, "test");
+}
+
+void bin_data(double x[], unsigned int N_x, double bins[], unsigned int N_bins, double xlower, double xupper)
+// formula 4.15 // TODO: is this correct?
+{
+    // initialize bins
+    for (int j=0; j<N_bins; j++) {
+        bins[j] = 0.;
+    }
+
+    double bin_size = (xupper-xlower) / (double)N_bins;
+    // fill bins
+    for (int i=0; i<N_x; i++) {
+        double xi = x[i];
+        for (int j=0; j<N_bins; j++) {
+            if (xlower + j * bin_size <= xi && xlower + (j+1) * bin_size > xi) {
+                bins[j] += 1.; // TODO: scale by reciprocal bin size?
+                break;
+            }
+        }
+    }
+}
+
+void bin_range(double range[], unsigned int N_bins, double xlower, double xupper)
+// fill array of corresponding x values for data bins
+{
+    double bin_size = (xupper-xlower) / (double)N_bins;
+    for (int j=0; j<N_bins; j++) {
+        range[j] = xlower + j * bin_size;
+    }
 }
 
 
@@ -72,11 +121,25 @@ void export_csv_double_2d(FILE* file, double arr[][N+1], const unsigned int rows
 //     return a * (m0 * (x1-x0) / cpow(a, 2) + V);
 // }
 
-double action(double x0, double x1)
+double action_point(double x0, double x1)
 {
     double V = 1./2. * pow(2, mu) * pow(2, x0) + lambda * pow(4, x0); // anharmonic oscillator potential
-    return epsilon * (m0 * (x1-x0) / pow(epsilon, 2) + V);
+    return epsilon * (1./2. * m0 * pow((x1-x0), 2) / pow(epsilon, 2) + V);
 }
+
+double action(double* x, unsigned int N)
+{
+    double action = 0.;
+    for (int i=0; i<=N; i++) {
+        action += action_point(x[i-1], x[i]);
+    }
+    return action;
+}
+
+// double potential(double x)
+// {
+
+// }
 
 double action_2p(double xm1, double x0, double x1)
 {
@@ -88,12 +151,16 @@ double action_2p(double xm1, double x0, double x1)
 void metropolis_step(double* xj) 
 {
     // double xjp = frand(xlower, xupper);
-    double xjp = frand(*xj - Delta, *xj + Delta);
+    double xjp = frand(*xj - Delta, *xj + Delta); // xj-prime
     // double S_delta = cabs(action(*xj, xjp)) - cabs(action(*xj, *(xj+1)));
     // double S_delta = cabs(action(*xj, xjp) - action(*xj, *(xj+1)));
     // double S_delta = action(xjp, *(xj+1)) - action(*xj, *(xj+1));
     double S_delta = action_2p(xj[-1], xjp, xj[1]) - action_2p(xj[-1], *xj, xj[1]);
-    // double S_delta = action_2p(*(xj-1), xjp, *(xj+1)) - action_2p(*(xj-1), *xj, *(xj+1));
+    // double x_neighborhood[3] = {xj[-1], xj[0], xj[1]};
+    // double S = action(x_neighborhood, 1); // action with current configuration
+    // x_neighborhood[1] = xjp;
+    // double Sp = action(x_neighborhood, 1); // action with xjp instead of xj
+    // double S_delta = Sp - S;
 
     if (S_delta < 0) {
         *xj = xjp;
@@ -109,6 +176,8 @@ void metropolis_step(double* xj)
 
 int main()
 {
+    srand(time(NULL));
+
     // initialize constants
     Delta = 2 * sqrt(epsilon);
 
@@ -132,7 +201,7 @@ int main()
     memcpy(measurements[0], x, (N+1)*sizeof(double)); // measure initial lattice configuration
     unsigned int measure_index = 1;
     for (int l=0; l<N_lattices; l++) {
-        randomize_double_array(x, N-1, xlower, xupper);
+        randomize_double_array(x+1, N-1, xlower, xupper);
         
         for (int j=0; j<N_measure; j++) {
             for (int k=0; k<N_montecarlo; k++) {
@@ -154,7 +223,34 @@ int main()
 
     // write to csv
     FILE* file = fopen("out.csv", "w");
-    // export_csv_double_2d(file, measurements, N_measurements, N+1);
-    export_csv_double_2d(file, ensemble, N_lattices, N+1);
+    export_csv_double_2d(file, N_measurements, N+1, measurements);
+    // export_csv_double_2d(file, N_lattices, N+1, ensemble);
     fclose(file);
+
+    
+    // bin the data
+    double bin_lower = -5.;
+    double bin_upper = 5.;
+    const unsigned int N_bins = 30;
+
+    // double bins[2][N_bins]; // first row are x values, second row are bin contents
+    double bins[N_bins];
+    double bins_range[N_bins];
+
+    // bin_data(ensemble, N_lattices*(N+1), bins_int, N_bins, bin_lower, bin_upper);
+    // bin_range(bins[0], N_bins, bin_lower, bin_upper);
+
+    bin_data(ensemble, N_lattices*(N+1), bins, N_bins, bin_lower, bin_upper);
+    // bin_data(measurements, N_measurements*(N+1), bins, N_bins, bin_lower, bin_upper);
+    bin_range(bins_range, N_bins, bin_lower, bin_upper);
+
+    FILE* bin_file = fopen("bins.csv", "w");
+    export_csv_double_1d(bin_file, N_bins, bins_range);
+    export_csv_double_1d(bin_file, N_bins, bins);
+
+
+    // bin_data(ensemble, N_lattices*(N+1), binstest, N_bins, bin_lower, bin_upper);
+    for (int i=0; i<N_bins; i++) {
+        printf("%f, ", bins[i]);
+    }
 }

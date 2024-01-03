@@ -1,4 +1,4 @@
-COMFLAGS = -lm
+COMFLAGS = -lm -Wno-incompatible-pointer-types
 
 # ifeq ($(OS), Windows_NT)
 # 	LINFLAGS = -L./lib -lvulkan-1 -lglfw3_mt -lgdi32 -luser32 -lshell32
@@ -8,11 +8,8 @@ COMFLAGS = -lm
 # 	OUTPUT = VulkanTest
 # endif
 
-PREFLAGS = -I./include
-INPUTS = main.cpp
 
-
-all: a out.csv
+all: a out.csv plot
 
 a: main.c
 	clang $(COMFLAGS) -o a main.c
