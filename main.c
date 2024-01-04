@@ -74,19 +74,6 @@ void export_csv_double_1d(FILE* file, const unsigned int cols, double arr[cols])
     fprintf(file, "\n");
 }
 
-// void export_csv_double_2d(FILE* file, const unsigned int rows, const unsigned int cols, double arr[rows][cols])
-// {
-//     for (int row=0; row<rows; row++) {
-//         for (int col=0; col<cols; col++) {
-//             fprintf(file, "%f%s", arr[row][col], (col==cols-1 ? "":","));
-//             // fprintf(file, "%f%s", (double)1, (col==cols-1 ? "":","));
-//             // fprintf(file, "l, ");
-//         };
-//         fprintf(file, "\n");
-//     };
-//     // fprintf(file, "test");
-// }
-
 void export_csv_double_2d(FILE* file, const unsigned int rows, const unsigned int cols, double arr[rows][cols])
 {
     for (int row=0; row<rows; row++) {
@@ -127,14 +114,6 @@ void bin_range(double range[], unsigned int N_bins, double xlower, double xupper
 
 
 // big functions
-
-// double complex action(double x0, double x1)
-// {
-//     double V = 1./2. * pow(2, mu) * pow(2, x0) + lambda * pow(4, x0); // anharmonic oscillator potential
-//     return a * (m0 * (x1-x0) / cpow(a, 2) + V);
-// }
-
-
 double potential(double x)
 {
     return 1./2. * pow(mu, 2) * pow(x, 2) + lambda * pow(x, 4); // anharmonic oscillator potential
@@ -179,13 +158,6 @@ void metropolis_step(double* xj)
     double xjp = frand(*xj - Delta, *xj + Delta); // xj-prime
 
     double S_delta = action_2p(xj[-1], xjp, xj[1]) - action_2p(xj[-1], *xj, xj[1]);
-    // double S_delta = cabs(c_action_2p(xj[-1], xjp, xj[1])) - cabs(c_action_2p(xj[-1], *xj, xj[1]));
-
-    // double x_neighborhood[3] = {xj[-1], xj[0], xj[1]};
-    // double S = action(x_neighborhood, 1); // action with current configuration
-    // x_neighborhood[1] = xjp;
-    // double Sp = action(x_neighborhood, 1); // action with xjp instead of xj
-    // double S_delta = Sp - S;
 
     if (S_delta < 0) {
         // if (fabs(*xj) < 0.15 && fabs(xj[-1]) < 0.15 && fabs(xj[1]) < 0.15) {
@@ -219,10 +191,6 @@ void metropolis_algo(
     // initialize boundary values
     x[0] = x0;
     x[N] = xN;
-    // for (int i=0; i<N_lattices*(1+N_measure); i++) {
-    //     ensemble[i][0] = x0;
-    //     ensemble[i][N] = xN;
-    // }
 
     // measure initial lattice configuration
     randomize_double_array(x+1, N-1, xlower, xupper);
@@ -277,57 +245,6 @@ int main()
     epsilon = 1.;
     Delta = 2 * sqrt(epsilon);
     metropolis_algo(0., 0., 1, 60, 5, 5, "out.csv", NULL);
-    // metropolis_algo(x0, xN, N, N_lattices, N_measure, N_montecarlo, N_markov, "out.csv", NULL);
-
-/*
-    // ensemble
-    double x[N+1];
-    // const unsigned int N_measurements = Ne * (1 + Nt);
-    const unsigned int N_measurements = N_lattices * (1 + N_measure);
-    double measurements[N_measurements][N+1];
-    double ensemble[N_lattices][N+1]; // array containing the "finished" states;
-
-
-    // initialize boundary values
-    x[0] = x0;
-    x[N] = xN;
-    for (int i=0; i<N_measurements; i++) {
-        measurements[i][0] = x0;
-        measurements[i][N] = xN;
-    }
-
-    // measure initial lattice configuration
-    randomize_double_array(x+1, N-1, xlower, xupper);
-    memcpy(measurements[0], x, (N+1)*sizeof(double));
-
-    // metropolis algorithm
-    unsigned int measure_index = 1;
-    for (int l=0; l<N_lattices; l++) {
-        randomize_double_array(x+1, N-1, xlower, xupper);
-        
-        for (int j=0; j<N_measure; j++) {
-            for (int k=0; k<N_montecarlo; k++) {
-                for (int i=1; i<N; i++) {
-                    // N_markov metropolis steps on the lattice site 
-                    for (int o=0; o<N_markov; o++) {
-                        metropolis_step(x+i);
-                    }
-                };
-            };
-            // measure the new lattice configuration
-            memcpy(measurements[measure_index], x, (N+1)*sizeof(double));
-            measure_index++;
-        };
-        memcpy(ensemble[l], x, (N+1)*sizeof(double));
-    }
-
-
-    // write to csv
-    FILE* file = fopen("out.csv", "w");
-    export_csv_double_2d(file, N_measurements, N+1, measurements);
-    // export_csv_double_2d(file, N_lattices, N+1, ensemble);
-    fclose(file);
-*/
 
     
 /*
