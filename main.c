@@ -8,30 +8,35 @@
 #include <time.h>
 
 //// parameters
-// boundary values
-const double x0 = 0.0;
-const double xN = 0.0;
-// general
-// const int N = 1e2;
-// const double epsilon = .1;
-const int N = 1e3;
-const double epsilon = 1.;
-double complex a = I * epsilon;
+int N;
+double epsilon;
+double a;
+double Delta;
+// double complex a = I * epsilon;
 const double m0 = 1.0;
 // potential
 const double mu = 1.0;
 const double lambda = 0.;
 // x range
-const double xlower = -2.; // is this needed?
+const double xlower = -2.;
 const double xupper = 2.;
-// simulation parameters
-const unsigned int N_measure = 60; // number of measurements made after monte carlo iterations. influences the total amount of M.C. iterations made
-// const unsigned int Nt = 20; // number of Monte Carlo iterations
-const unsigned int N_lattices = 1; // number of initial lattice configurations generated
-const unsigned int N_montecarlo = 5; // see below (4.8) // Number of Monte Carlo iterations between measurements
-const unsigned int N_markov = 5; // n-bar from (3.29) // Number of Markov iterations on each lattice point
-double Delta; // initialized in main
 
+
+
+// // simulation parameters
+// const unsigned int N_measure = 60; // number of measurements made after monte carlo iterations. influences the total amount of M.C. iterations made
+// // const unsigned int Nt = 20; // number of Monte Carlo iterations
+// const unsigned int N_lattices = 1; // number of initial lattice configurations generated
+// const unsigned int N_montecarlo = 5; // see below (4.8) // Number of Monte Carlo iterations between measurements
+// const unsigned int N_markov = 5; // n-bar from (3.29) // Number of Markov iterations on each lattice point
+// double Delta; // initialized in main
+
+// // boundary values
+// const double x0 = 0.0;
+// const double xN = 0.0;
+// general eral
+// const int N = 1e2;
+// const double epsilon = .1;
 
 
 // helper functions
@@ -199,7 +204,7 @@ void metropolis_step(double* xj)
 }
 
 void metropolis_algo(
-    double x0, double xN, unsigned int N,
+    double x0, double xN,
     unsigned int N_lattices, unsigned int N_measure, unsigned int N_montecarlo, unsigned int N_markov,
     char filename[], char equilibrium_filename[])
     // double ensemble[N_lattices*(1+N_measure)][N+1], double equilibrium_ensemble[N_lattices][N+1])
@@ -267,11 +272,12 @@ int main()
     srand(time(NULL));
     // srand(42);
 
-    // initialize constants
+
+    N = 1000;
+    epsilon = 1.;
     Delta = 2 * sqrt(epsilon);
-
-
-    metropolis_algo(x0, xN, N, N_lattices, N_measure, N_montecarlo, N_markov, "out.csv", NULL);
+    metropolis_algo(0., 0., 1, 60, 5, 5, "out.csv", NULL);
+    // metropolis_algo(x0, xN, N, N_lattices, N_measure, N_montecarlo, N_markov, "out.csv", NULL);
 
 /*
     // ensemble
