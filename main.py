@@ -4,6 +4,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os.path
 
+
+def list_filename(name, suffix='.png'): # to save plots successively
+    i = 0
+    while True:
+        filename = '%s%i%s' % (name, i, suffix)
+        if os.path.isfile(filename):
+            i += 1
+            continue
+
+        return filename
+
+
 dpi = 200
 
 # ax = plt.gca()
@@ -15,23 +27,26 @@ t = range(cols)
 
 for row in range(3):
     plt.plot(t, measurements[row])
+    # plt.plot(t, measurements[-row-1])
 
 # plt.ylim(-3, 3)
 
-i=0
-while True:
-    filename = "plot/plot%i.png" % i
-    if os.path.isfile(filename):
-        i += 1
-        continue
+# i=0
+# while True:
+#     filename = "plot/plot%i.png" % i
+#     if os.path.isfile(filename):
+#         i += 1
+#         continue
 
-    plt.savefig(filename, dpi=dpi)
-    break
+#     plt.savefig(filename, dpi=dpi)
+#     break
+
+plt.savefig(list_filename('plot/plot'), dpi=dpi)
 
 
-filename_bins = "plot/bins.png"
+# filename_bins = "plot/bins.png"
 bins = np.genfromtxt('bins.csv', delimiter=',')#, skip_header=5, usecols=data_usecols, converters=data_converters)
 bins_x, bins_y = bins[0], bins[1]
 plt.clf()
-plt.scatter(bins_x, bins_y)
-plt.savefig(filename_bins, dpi=dpi)
+plt.plot(bins_x, bins_y, 'x', ms=4)
+plt.savefig(list_filename('plot/bins'), dpi=dpi)

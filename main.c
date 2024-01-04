@@ -12,11 +12,12 @@
 const double x0 = 0.0;
 const double xN = 0.0;
 // general
-const int N = 1e2;
-const double m0 = 1.0;
-// time step
-const double epsilon = 0.1;
+// const int N = 1e2;
+// const double epsilon = .1;
+const int N = 1e3;
+const double epsilon = 1.;
 double complex a = I * epsilon;
+const double m0 = 1.0;
 // potential
 const double mu = 1.0;
 const double lambda = 0.;
@@ -24,12 +25,12 @@ const double lambda = 0.;
 const double xlower = -2.; // is this needed?
 const double xupper = 2.;
 // simulation parameters
-const unsigned int N_measure = 100; // number of measurements made after monte carlo iterations.
+const unsigned int N_measure = 300; // number of measurements made after monte carlo iterations. influences the total amount of M.C. iterations made
 // const unsigned int Nt = 20; // number of Monte Carlo iterations
-const unsigned int N_lattices = 5; // number of initial lattice configurations generated
+const unsigned int N_lattices = 1; // number of initial lattice configurations generated
 const unsigned int N_montecarlo = 5; // see below (4.8) // Number of Monte Carlo iterations between measurements
 const unsigned int N_markov = 5; // n-bar from (3.29) // Number of Markov iterations on each lattice point
-double Delta;
+double Delta; // initialized in main
 
 
 
@@ -46,7 +47,13 @@ void randomize_double_array(double* array, unsigned int len, double lower, doubl
 {
     for (unsigned int i=0; i<len; i++) {
         array[i] = frand(xlower, xupper);
+        // array[i] = 0.; // for testing
     };
+}
+
+void printfl(double x)
+{
+    printf("%f\n", x);
 }
 
 void printc(double complex z)
@@ -136,16 +143,16 @@ double action(double* x, unsigned int N)
     return action;
 }
 
-// double potential(double x)
-// {
-
-// }
+double potential(double x)
+{
+    return 1./2. * pow(mu, 2) * pow(x, 2) + lambda * pow(x, 4); // anharmonic oscillator potential
+}
 
 double action_2p(double xm1, double x0, double x1)
 {
-    double V0 = 1./2. * pow(2, mu) * pow(2, x0) + lambda * pow(4, x0); // anharmonic oscillator potential
-    double Vm1 = 1./2. * pow(2, mu) * pow(2, xm1) + lambda * pow(4, xm1); // anharmonic oscillator potential
-    return epsilon * (1./2. * m0 * pow((x1-x0), 2) / pow(epsilon, 2) + V0) + epsilon * (1./2. * m0 * pow((x0-xm1), 2) / pow(epsilon, 2) + Vm1);
+    double action_0 = epsilon * (1./2. * m0 * pow((x1-x0), 2) / pow(epsilon, 2) + potential(x0)); 
+    double action_m1 = epsilon * (1./2. * m0 * pow((x0-xm1), 2) / pow(epsilon, 2) + potential(xm1));
+    return action_0 + action_m1;
 }
 
 void metropolis_step(double* xj) 
@@ -156,6 +163,7 @@ void metropolis_step(double* xj)
     // double S_delta = cabs(action(*xj, xjp) - action(*xj, *(xj+1)));
     // double S_delta = action(xjp, *(xj+1)) - action(*xj, *(xj+1));
     double S_delta = action_2p(xj[-1], xjp, xj[1]) - action_2p(xj[-1], *xj, xj[1]);
+
     // double x_neighborhood[3] = {xj[-1], xj[0], xj[1]};
     // double S = action(x_neighborhood, 1); // action with current configuration
     // x_neighborhood[1] = xjp;
@@ -163,10 +171,16 @@ void metropolis_step(double* xj)
     // double S_delta = Sp - S;
 
     if (S_delta < 0) {
+        // if (fabs(*xj) < 0.15 && fabs(xj[-1]) < 0.15 && fabs(xj[1]) < 0.15) {
+        // printf("%f, %f, %f | %f\n", xj[-1], *xj, xj[1], xjp);
+        // printfl(S_delta);};
         *xj = xjp;
     }
     else {
-        if (exp(-S_delta) > frand(0., 1.)) {
+        double test = frand(0., 1.);
+        // if (exp(-S_delta) > frand(0., 1.)) {
+        if (exp(-S_delta) > test) {
+            // printf("a: %f %f\n", exp(-S_delta), test);
             *xj = xjp;
         };
     };
@@ -176,6 +190,13 @@ void metropolis_step(double* xj)
 
 int main()
 {
+    // test
+    printf("test\n");
+    printfl(action_2p(-1., -1., -1.));
+    printfl(action_2p(-1., -1.1, -1.1));
+    printfl(action_2p(0., 0., 0.));
+
+
     srand(time(NULL));
 
     // initialize constants
@@ -197,8 +218,11 @@ int main()
         measurements[i][N] = xN;
     }
 
+    // measure initial lattice configuration
+    randomize_double_array(x+1, N-1, xlower, xupper);
+    memcpy(measurements[0], x, (N+1)*sizeof(double));
+
     // metropolis algorithm
-    memcpy(measurements[0], x, (N+1)*sizeof(double)); // measure initial lattice configuration
     unsigned int measure_index = 1;
     for (int l=0; l<N_lattices; l++) {
         randomize_double_array(x+1, N-1, xlower, xupper);
@@ -233,12 +257,8 @@ int main()
     double bin_upper = 5.;
     const unsigned int N_bins = 30;
 
-    // double bins[2][N_bins]; // first row are x values, second row are bin contents
     double bins[N_bins];
     double bins_range[N_bins];
-
-    // bin_data(ensemble, N_lattices*(N+1), bins_int, N_bins, bin_lower, bin_upper);
-    // bin_range(bins[0], N_bins, bin_lower, bin_upper);
 
     bin_data(ensemble, N_lattices*(N+1), bins, N_bins, bin_lower, bin_upper);
     // bin_data(measurements, N_measurements*(N+1), bins, N_bins, bin_lower, bin_upper);
@@ -247,10 +267,5 @@ int main()
     FILE* bin_file = fopen("bins.csv", "w");
     export_csv_double_1d(bin_file, N_bins, bins_range);
     export_csv_double_1d(bin_file, N_bins, bins);
-
-
-    // bin_data(ensemble, N_lattices*(N+1), binstest, N_bins, bin_lower, bin_upper);
-    for (int i=0; i<N_bins; i++) {
-        printf("%f, ", bins[i]);
-    }
+    fclose(bin_file);
 }
