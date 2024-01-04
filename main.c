@@ -37,10 +37,10 @@ double Delta; // initialized in main
 // helper functions
 double frand(double lower, double upper)
 {
-    static int seed;
-    seed = rand();
-    srand(seed);
-    return lower + (upper - lower) * ((double)rand() / RAND_MAX);
+    // static int seed;
+    // seed = rand();
+    // srand(seed);
+    return lower + (upper - lower) * ((double)rand() / (double)RAND_MAX);
 }
 
 void randomize_double_array(double* array, unsigned int len, double lower, double upper)
@@ -122,6 +122,7 @@ void bin_range(double range[], unsigned int N_bins, double xlower, double xupper
 
 
 // big functions
+
 // double complex action(double x0, double x1)
 // {
 //     double V = 1./2. * pow(2, mu) * pow(2, x0) + lambda * pow(4, x0); // anharmonic oscillator potential
@@ -197,18 +198,14 @@ void metropolis_step(double* xj)
     };
 }
 
+// double correlation_function(unsigned int rows, unsigned int cols, double ensemble[rows][cols], )
+
 
 
 int main()
 {
-    // test
-    printf("test\n");
-    printfl(action_2p(-1., -1., -1.));
-    printfl(action_2p(-1., -1.1, -1.1));
-    printfl(action_2p(0., 0., 0.));
-
-
-    srand(time(NULL));
+    // srand(time(NULL));
+    srand(42);
 
     // initialize constants
     Delta = 2 * sqrt(epsilon);
