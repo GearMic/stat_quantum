@@ -15,6 +15,19 @@ def list_filename(name, suffix='.png'): # to save plots successively
 
         return filename
 
+def correlation_function(ensemble: np.ndarray, m: int):
+    rows, cols = ensemble.shape
+    a = 1.
+
+    correlation_sum = 0
+    for i in range(rows):
+        row = ensemble[i]
+        for j in range(cols-m):
+            correlation_sum += row[i] * row[i+m]
+
+    return 1 / rows / (cols-m) * correlation_sum
+
+
 
 dpi = 200
 
