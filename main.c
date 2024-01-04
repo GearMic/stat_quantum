@@ -128,10 +128,15 @@ void bin_range(double range[], unsigned int N_bins, double xlower, double xupper
 //     return a * (m0 * (x1-x0) / cpow(a, 2) + V);
 // }
 
+
+double potential(double x)
+{
+    return 1./2. * pow(mu, 2) * pow(x, 2) + lambda * pow(x, 4); // anharmonic oscillator potential
+}
+
 double action_point(double x0, double x1)
 {
-    double V = 1./2. * pow(2, mu) * pow(2, x0) + lambda * pow(4, x0); // anharmonic oscillator potential
-    return epsilon * (1./2. * m0 * pow((x1-x0), 2) / pow(epsilon, 2) + V);
+    return epsilon * (1./2. * m0 * pow((x1-x0), 2) / pow(epsilon, 2) + potential(x0));
 }
 
 double action(double* x, unsigned int N)
@@ -143,15 +148,22 @@ double action(double* x, unsigned int N)
     return action;
 }
 
-double potential(double x)
-{
-    return 1./2. * pow(mu, 2) * pow(x, 2) + lambda * pow(x, 4); // anharmonic oscillator potential
-}
-
 double action_2p(double xm1, double x0, double x1)
 {
-    double action_0 = epsilon * (1./2. * m0 * pow((x1-x0), 2) / pow(epsilon, 2) + potential(x0)); 
-    double action_m1 = epsilon * (1./2. * m0 * pow((x0-xm1), 2) / pow(epsilon, 2) + potential(xm1));
+    double action_0 = action_point(xm1, x0);
+    double action_m1 = action_point(x0, x1);
+    return action_0 + action_m1;
+}
+
+double complex c_action_point(double x0, double x1)
+{
+    return a * (1./2. * m0 * cpow((x1-x0), 2) / cpow(a, 2) + potential(x0));
+}
+
+double complex c_action_2p(double xm1, double x0, double x1)
+{
+    double complex action_0 = c_action_point(xm1, x0);
+    double complex action_m1 = c_action_point(x0, x1);
     return action_0 + action_m1;
 }
 
@@ -159,10 +171,9 @@ void metropolis_step(double* xj)
 {
     // double xjp = frand(xlower, xupper);
     double xjp = frand(*xj - Delta, *xj + Delta); // xj-prime
-    // double S_delta = cabs(action(*xj, xjp)) - cabs(action(*xj, *(xj+1)));
-    // double S_delta = cabs(action(*xj, xjp) - action(*xj, *(xj+1)));
-    // double S_delta = action(xjp, *(xj+1)) - action(*xj, *(xj+1));
+
     double S_delta = action_2p(xj[-1], xjp, xj[1]) - action_2p(xj[-1], *xj, xj[1]);
+    // double S_delta = cabs(c_action_2p(xj[-1], xjp, xj[1])) - cabs(c_action_2p(xj[-1], *xj, xj[1]));
 
     // double x_neighborhood[3] = {xj[-1], xj[0], xj[1]};
     // double S = action(x_neighborhood, 1); // action with current configuration
