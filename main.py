@@ -26,8 +26,8 @@ print(measurements.shape)
 t = range(cols)
 
 for row in range(3):
-    plt.plot(t, measurements[row])
-    # plt.plot(t, measurements[-row-1])
+    # plt.plot(t, measurements[row])
+    plt.plot(t, measurements[-row-1])
 
 # plt.ylim(-3, 3)
 
@@ -47,6 +47,11 @@ plt.savefig(list_filename('plot/plot'), dpi=dpi)
 # filename_bins = "plot/bins.png"
 bins = np.genfromtxt('bins.csv', delimiter=',')#, skip_header=5, usecols=data_usecols, converters=data_converters)
 bins_x, bins_y = bins[0], bins[1]
+bin_size = bins_x[1] - bins_x[0]
+func_x = np.linspace(bins_x[0], bins_x[-1] + bin_size, 100)
+func_y = 0.59 * np.exp(-1.1 * func_x**2)
+
 plt.clf()
 plt.plot(bins_x, bins_y, 'x', ms=4)
+plt.plot(func_x, func_y)
 plt.savefig(list_filename('plot/bins'), dpi=dpi)

@@ -25,7 +25,7 @@ const double lambda = 0.;
 const double xlower = -2.; // is this needed?
 const double xupper = 2.;
 // simulation parameters
-const unsigned int N_measure = 300; // number of measurements made after monte carlo iterations. influences the total amount of M.C. iterations made
+const unsigned int N_measure = 60; // number of measurements made after monte carlo iterations. influences the total amount of M.C. iterations made
 // const unsigned int Nt = 20; // number of Monte Carlo iterations
 const unsigned int N_lattices = 1; // number of initial lattice configurations generated
 const unsigned int N_montecarlo = 5; // see below (4.8) // Number of Monte Carlo iterations between measurements
@@ -103,7 +103,7 @@ void bin_data(double x[], unsigned int N_x, double bins[], unsigned int N_bins, 
         double xi = x[i];
         for (int j=0; j<N_bins; j++) {
             if (xlower + j * bin_size <= xi && xlower + (j+1) * bin_size > xi) {
-                bins[j] += 1.; // TODO: scale by reciprocal bin size?
+                bins[j] += 1. / bin_size / (double)N_x; // TODO: can this be done more efficiently?
                 break;
             }
         }
