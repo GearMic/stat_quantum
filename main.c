@@ -198,18 +198,82 @@ void metropolis_step(double* xj)
     };
 }
 
+void metropolis_algo(
+    double x0, double xN, unsigned int N,
+    unsigned int N_lattices, unsigned int N_measure, unsigned int N_montecarlo, unsigned int N_markov,
+    char filename[], char equilibrium_filename[])
+    // double ensemble[N_lattices*(1+N_measure)][N+1], double equilibrium_ensemble[N_lattices][N+1])
+{
+    // ensemble
+    const unsigned int N_measurements = N_lattices * (1 + N_measure);
+    double ensemble[N_measurements][N+1];
+    double equilibrium_ensemble[N_lattices][N+1]; // array containing the "finished" states;
+
+
+    double x[N+1];
+    // initialize boundary values
+    x[0] = x0;
+    x[N] = xN;
+    // for (int i=0; i<N_lattices*(1+N_measure); i++) {
+    //     ensemble[i][0] = x0;
+    //     ensemble[i][N] = xN;
+    // }
+
+    // measure initial lattice configuration
+    randomize_double_array(x+1, N-1, xlower, xupper);
+    memcpy(ensemble[0], x, (N+1)*sizeof(double));
+
+    // metropolis algorithm
+    unsigned int measure_index = 1;
+    for (int l=0; l<N_lattices; l++) {
+        randomize_double_array(x+1, N-1, xlower, xupper);
+        
+        for (int j=0; j<N_measure; j++) {
+            for (int k=0; k<N_montecarlo; k++) {
+                for (int i=1; i<N; i++) {
+                    // N_markov metropolis steps on the lattice site 
+                    for (int o=0; o<N_markov; o++) {
+                        metropolis_step(x+i);
+                    }
+                };
+            };
+            // measure the new lattice configuration
+            memcpy(ensemble[measure_index], x, (N+1)*sizeof(double));
+            measure_index++;
+        };
+        memcpy(equilibrium_ensemble[l], x, (N+1)*sizeof(double));
+    }
+
+    // write to csv
+    if (filename) {
+        FILE* file = fopen(filename, "w");
+        export_csv_double_2d(file, N_measurements, N+1, ensemble);
+        fclose(file);
+    }
+
+    if (equilibrium_filename) {
+        FILE* equilibrium_file = fopen(equilibrium_filename, "w");
+        export_csv_double_2d(equilibrium_file, N_measurements, N+1, ensemble);
+        fclose(equilibrium_file);
+    }
+}
+
 // double correlation_function(unsigned int rows, unsigned int cols, double ensemble[rows][cols], )
 
 
 
 int main()
 {
-    // srand(time(NULL));
-    srand(42);
+    srand(time(NULL));
+    // srand(42);
 
     // initialize constants
     Delta = 2 * sqrt(epsilon);
 
+
+    metropolis_algo(x0, xN, N, N_lattices, N_measure, N_montecarlo, N_markov, "out.csv", NULL);
+
+/*
     // ensemble
     double x[N+1];
     // const unsigned int N_measurements = Ne * (1 + Nt);
@@ -250,16 +314,17 @@ int main()
         };
         memcpy(ensemble[l], x, (N+1)*sizeof(double));
     }
-    printf("%i %i\n", N_measurements, measure_index);
-    printf("%i %i\n", N_measurements, N+1);
+
 
     // write to csv
     FILE* file = fopen("out.csv", "w");
     export_csv_double_2d(file, N_measurements, N+1, measurements);
     // export_csv_double_2d(file, N_lattices, N+1, ensemble);
     fclose(file);
+*/
 
     
+/*
     // bin the data
     double bin_lower = -5.;
     double bin_upper = 5.;
@@ -276,4 +341,8 @@ int main()
     export_csv_double_1d(bin_file, N_bins, bins_range);
     export_csv_double_1d(bin_file, N_bins, bins);
     fclose(bin_file);
+
+    printf("%i %i\n", N_measurements, measure_index);
+    printf("%i %i\n", N_measurements, N+1);
+*/
 }
