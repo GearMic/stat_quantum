@@ -1,5 +1,8 @@
 # Custom
+a
+*.csv
 plot/*
+
 
 # Prerequisites
 *.d
