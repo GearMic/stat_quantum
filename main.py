@@ -48,6 +48,7 @@ plt.savefig(list_filename('plot/plot'), dpi=dpi)
 bins = np.genfromtxt('bins.csv', delimiter=',')#, skip_header=5, usecols=data_usecols, converters=data_converters)
 bins_x, bins_y = bins[0], bins[1]
 bin_size = bins_x[1] - bins_x[0]
+bins_x += bin_size / 2 # for plotting bin value in the middle of each bin
 func_x = np.linspace(bins_x[0], bins_x[-1] + bin_size, 100)
 func_y = 0.59 * np.exp(-1.1 * func_x**2)
 
