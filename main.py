@@ -40,6 +40,18 @@ def correlation_function_alt(ensemble: np.ndarray, m: int, a: float, j: int = 0)
     return 1 / rows * correlation_sum
 
 
+def correlation_function_periodic(ensemble: np.ndarray, m: int, a: float):
+    # ensemble = ensemble[:, :-1] # cut away duplicate periodic value
+    data = ensemble.flatten()
+
+    correlation_sum = 0
+    M = len(data)
+    for i in range(M):
+        correlation_sum += data[i%M] * data[(i+m)%M]
+
+    return 1 / M * correlation_sum
+    
+    
 def bin_normalized(data, n_bins, xlower, xupper):
     rows, cols = data.shape
     bin_size = (xupper - xlower) / n_bins
@@ -95,11 +107,11 @@ epsilon = 0.5
 
 data_b = np.genfromtxt('harmonic_b.csv', delimiter=',')
 if len(data_b.shape) == 1:
-    data_b = np.expand_dims(ensemble, 0)
+    data_b = np.expand_dims(data_b, 0)
 rows, cols = data_b.shape
 
 correlation_x = np.array(tuple(m*epsilon for m in range(cols)))
-correlation_y = np.array(tuple(correlation_function(data_b, m, epsilon) for m in range(cols)))
+correlation_y = np.array(tuple(correlation_function_periodic(data_b, m, epsilon) for m in range(cols)))
 # j = 1
 # correlation_y = np.array(tuple(correlation_function_alt(data_b, m, epsilon, 1) for m in range(cols-j)))
 # correlation_x = np.array(tuple(m*epsilon for m in range(cols-j)))
@@ -158,3 +170,27 @@ plt.clf()
 plt.plot(bins_x, bins_y, 'x', ms=4)#, color='tab:red')
 # plt.plot(func_x, func_y, lw=.75, color='tab:gray')
 plt.savefig(list_filename('plot/8/bins'), dpi=dpi)
+
+
+#### Fig. 9
+epsilon = 0.25
+
+anharmonic_correlation = []
+for i in "abc":
+    anharmonic_correlation.append(np.genfromtxt('anharmonic_correlation_%s.csv' % i, delimiter=','))
+
+plt.clf()
+fig, ax = plt.subplots()
+ax.set_yscale('log')
+ax.yaxis.set_major_formatter(plt.ScalarFormatter())
+ax.set_xlim(0.0, 3.0)
+
+markers = ('x', '+', '4')
+for data, marker in zip(anharmonic_correlation, markers):
+    rows, cols = data.shape
+    correlation_x = np.array(tuple(m*epsilon for m in range(cols)))
+    correlation_y = np.array(tuple(correlation_function_periodic(data, m, epsilon) for m in range(cols)))
+
+    ax.plot(correlation_x, correlation_y, marker, ms=4)
+
+fig.savefig(list_filename('plot/9/correlation'), dpi=dpi)

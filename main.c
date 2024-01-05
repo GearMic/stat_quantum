@@ -270,7 +270,8 @@ int main()
     N = 51;
     epsilon = 0.5;
     Delta = 2 * sqrt(epsilon);
-    metropolis_algo(0., 0., 3, 60, 5, 5, "harmonic_b.csv", NULL);
+    metropolis_algo(0., 0., 1, 10, 1, 5, "harmonic_b.csv", NULL);
+    // metropolis_algo(0., 0., 50, 1, 50, 5, "harmonic_b.csv", NULL);
     // metropolis_algo(0., 0., 6, 60, 5, 5, NULL, "harmonic_b.csv");
 
     // use the f_sq potential from here on
@@ -294,15 +295,18 @@ int main()
     f_sq = 2.0;
     N = 200;
     epsilon = 0.25;
-    metropolis_algo(0., 0., 100, 50, 10, 5, NULL, "anharmonic_d.csv");
+    metropolis_algo(0., 0., 10, 50, 10, 5, NULL, "anharmonic_e.csv");
+    // metropolis_algo(0., 0., 100, 50, 10, 5, NULL, "anharmonic_d.csv");
     // metropolis_algo(0., 0., 100, 50, 1, 5, "anharmonic_d.csv", NULL);
 
     // //// Fig. 9
-    // m0 = 0.5;
-    // f_sq = 2.0;
-    // N = 303;
-    // a = 0.25;
-    // metropolis_algo(0., 0., 100, 50, 10, 5, NULL, "anharmonic_d.csv");
+    m0 = 0.5;
+    f_sq = 2.0;
+    N = 303;
+    a = 0.25;
+    metropolis_algo(0., 0., 1, 10, 1, 5, NULL, "anharmonic_correlation_a.csv");
+    metropolis_algo(0., 0., 1, 10, 1, 10, NULL, "anharmonic_correlation_b.csv");
+    metropolis_algo(0., 0., 1, 10, 1, 15, NULL, "anharmonic_correlation_c.csv");
 
 
 
