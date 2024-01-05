@@ -1,7 +1,7 @@
 # Custom
 a
 *.csv
-plot/*.png
+plot/*/*.png
 
 
 # Prerequisites
