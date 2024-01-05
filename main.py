@@ -123,6 +123,7 @@ plt.xlim(0.0, 3.0)
 # plt.clf()
 ax.plot(correlation_x, correlation_y, 'x', ms=4)
 plt.savefig(list_filename('plot/6/correlation'), dpi=dpi)
+## TODO: find low-lying energy levels
 
 
 #### Fig.7
@@ -194,3 +195,12 @@ for data, marker in zip(anharmonic_correlation, markers):
     ax.plot(correlation_x, correlation_y, marker, ms=4)
 
 fig.savefig(list_filename('plot/9/correlation'), dpi=dpi)
+
+
+#### Fig. 10
+#######
+## TODO: find low-lying energy levels
+#######
+
+
+#### Fig. 11
