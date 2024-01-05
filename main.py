@@ -70,25 +70,12 @@ plt.savefig(list_filename('plot/4/plot'), dpi=dpi)
 
 
 ## Fig. 5
-
 # bins = np.genfromtxt('bins.csv', delimiter=',')
 # bins_x, bins_y = bins[0], bins[1]
 # bin_size = bins_x[1] - bins_x[0]
 # bins_x += bin_size / 2 # for plotting bin value in the middle of each bin
 
-
 data = measurements
-# rows, cols = data.shape
-
-# bin_range = (-3.0, 3.0)
-# n_bins = 40
-
-# bin_size = (bin_range[1] - bin_range[0]) / n_bins
-# bins, edges = np.histogram(data, n_bins, bin_range)
-# bins_x = edges[:-1] + bin_size / 2
-# bins_y = bins / bin_size / (rows*cols)
-# print(edges)
-# print(bins_x)
 
 xlower, xupper = -3., 3.
 bins_x, bins_y = bin_normalized(data, 40, xlower, xupper)
@@ -101,7 +88,6 @@ plt.clf()
 plt.plot(bins_x, bins_y, 'x', ms=4)#, color='tab:red')
 plt.plot(func_x, func_y, lw=.75, color='tab:gray')
 plt.savefig(list_filename('plot/5/bins'), dpi=dpi)
-
 
 
 ## Fig. 6
@@ -154,4 +140,21 @@ for i in range(len(axs)):
     ax.set_title('$f^2 = %.1f$' % f_sq)
 
 fig.suptitle('Fig. 7')
-fig.savefig(list_filename('plot/7a/anharmonic_a'), dpi=dpi)
+fig.savefig(list_filename('plot/7/anharmonic'), dpi=dpi)
+
+
+#### Fig. 8
+data = np.genfromtxt('anharmonic_d.csv', delimiter=',')
+
+xlower, xupper = -3., 3.
+bins_x, bins_y = bin_normalized(data, 60, xlower, xupper)
+
+# TODO: add theoretical function
+
+# func_x = np.linspace(xlower, xupper, 200)
+# func_y = 0.59 * np.exp(-1.1 * func_x**2)
+
+plt.clf()
+plt.plot(bins_x, bins_y, 'x', ms=4)#, color='tab:red')
+# plt.plot(func_x, func_y, lw=.75, color='tab:gray')
+plt.savefig(list_filename('plot/8/bins'), dpi=dpi)

@@ -286,6 +286,13 @@ int main()
     f_sq = 2.0;
     metropolis_algo(0., 0., 1, 1, 40, 5, "anharmonic_c.csv", NULL);
 
+    m0 = 0.5;
+    f_sq = 2.0;
+    N = 200;
+    epsilon = 0.25;
+    metropolis_algo(0., 0., 100, 50, 10, 5, NULL, "anharmonic_d.csv");
+    // metropolis_algo(0., 0., 100, 50, 1, 5, "anharmonic_d.csv", NULL);
+
 
 
 /*
