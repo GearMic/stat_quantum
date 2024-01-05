@@ -252,15 +252,18 @@ int main()
     srand(time(NULL));
     // srand(42);
 
+    potential_ptr = *potential;
+
+    //// Fig. 4, 5
     m0 = 1.0;
     mu_sq = 1.0;
     lambda = 0.0;
     N = 1000;
     epsilon = 1.;
     Delta = 2 * sqrt(epsilon);
-    potential_ptr = *potential;
     metropolis_algo(0., 0., 3, 60, 5, 5, "harmonic_a.csv", NULL);
 
+    //// Fig. 6
     m0 = 0.5;
     mu_sq = 2.0;
     lambda = 0.0;
@@ -270,14 +273,14 @@ int main()
     metropolis_algo(0., 0., 3, 60, 5, 5, "harmonic_b.csv", NULL);
     // metropolis_algo(0., 0., 6, 60, 5, 5, NULL, "harmonic_b.csv");
 
+    // use the f_sq potential from here on
+    potential_ptr = *potential_alt;
 
     //// Fig. 7
     m0 = 0.5;
     lambda = 1.0;
     epsilon = 1.0;
     N = 50;
-    potential_ptr = *potential_alt;
-
 
     f_sq = 0.5;
     metropolis_algo(0., 0., 1, 1, 40, 5, "anharmonic_a.csv", NULL);
@@ -286,12 +289,22 @@ int main()
     f_sq = 2.0;
     metropolis_algo(0., 0., 1, 1, 40, 5, "anharmonic_c.csv", NULL);
 
+    //// Fig. 8
     m0 = 0.5;
     f_sq = 2.0;
     N = 200;
     epsilon = 0.25;
     metropolis_algo(0., 0., 100, 50, 10, 5, NULL, "anharmonic_d.csv");
     // metropolis_algo(0., 0., 100, 50, 1, 5, "anharmonic_d.csv", NULL);
+
+    // //// Fig. 9
+    // m0 = 0.5;
+    // f_sq = 2.0;
+    // N = 303;
+    // a = 0.25;
+    // metropolis_algo(0., 0., 100, 50, 10, 5, NULL, "anharmonic_d.csv");
+
+
 
 
 
