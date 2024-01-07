@@ -25,25 +25,12 @@ const double xupper = 2.;
 double (*potential_ptr)(double);
 
 
-
-// // simulation parameters
-// const unsigned int N_measure = 60; // number of measurements made after monte carlo iterations. influences the total amount of M.C. iterations made
-// // const unsigned int Nt = 20; // number of Monte Carlo iterations
-// const unsigned int N_lattices = 1; // number of initial lattice configurations generated
-// const unsigned int N_montecarlo = 5; // see below (4.8) // Number of Monte Carlo iterations between measurements
-// const unsigned int N_markov = 5; // n-bar from (3.29) // Number of Markov iterations on each lattice point
-// double Delta; // initialized in main
-
-// // boundary values
-// const double x0 = 0.0;
-// const double xN = 0.0;
-// general eral
-// const int N = 1e2;
-// const double epsilon = .1;
+#define ROWS 10
+#define COLS 20
 
 
 // helper functions
-double frand(double lower, double upper)
+double frand(double lower, double upper) // TODO: do this on the graphics card
 {
     // static int seed;
     // seed = rand();
@@ -64,12 +51,7 @@ void printfl(double x)
     printf("%f\n", x);
 }
 
-void printc(double complex z)
-{
-    printf("%f + i%f\n", creal(z), cimag(z));
-}
-
-void export_csv_double_1d(FILE* file, const unsigned int cols, double arr[cols])
+void export_csv_double_1d(FILE* file, const unsigned int cols, double arr[])
 {
     for (int col=0; col<cols; col++) {
         fprintf(file, "%f%s", arr[col], (col==cols-1 ? "":","));
@@ -77,70 +59,34 @@ void export_csv_double_1d(FILE* file, const unsigned int cols, double arr[cols])
     fprintf(file, "\n");
 }
 
-void export_csv_double_2d(FILE* file, const unsigned int rows, const unsigned int cols, double arr[rows][cols])
+void export_csv_double_2d(FILE* file, const unsigned int rows, const unsigned int cols, double arr[ROWS][COLS])
 {
     for (int row=0; row<rows; row++) {
         export_csv_double_1d(file, cols, arr[row]);
     };
 }
 
-void bin_data(double x[], unsigned int N_x, double bins[], unsigned int N_bins, double xlower, double xupper)
-// formula 4.15 // TODO: is this correct?
-{
-    // initialize bins
-    for (int j=0; j<N_bins; j++) {
-        bins[j] = 0.;
-    }
-
-    double bin_size = (xupper-xlower) / (double)N_bins;
-    // fill bins
-    for (int i=0; i<N_x; i++) {
-        double xi = x[i];
-        for (int j=0; j<N_bins; j++) {
-            if (xlower + j * bin_size <= xi && xlower + (j+1) * bin_size > xi) {
-                bins[j] += 1. / bin_size / (double)N_x; // TODO: can this be done more efficiently?
-                break;
-            }
-        }
-    }
-}
-
-void bin_range(double range[], unsigned int N_bins, double xlower, double xupper)
-// fill array of corresponding x values for data bins
-{
-    double bin_size = (xupper-xlower) / (double)N_bins;
-    for (int j=0; j<N_bins; j++) {
-        range[j] = xlower + j * bin_size;
-    }
-}
-
-
 
 // big functions
+__global__
 double potential(double x)
 {
     return 1./2. * pow(mu_sq, 2) * pow(x, 2) + lambda * pow(x, 4); // anharmonic oscillator potential
 }
 
+__global__
 double potential_alt(double x)
 {
     return lambda * pow( pow(x, 2.f) - f_sq, 2.f );
 }
 
+__global__
 double action_point(double x0, double x1)
 {
     return epsilon * (1./2. * m0 * pow((x1-x0), 2) / pow(epsilon, 2) + (*potential_ptr)(x0));
 }
 
-double action(double* x, unsigned int N)
-{
-    double action = 0.;
-    for (int i=0; i<=N; i++) {
-        action += action_point(x[i-1], x[i]);
-    }
-    return action;
-}
-
+__global__
 double action_2p(double xm1, double x0, double x1)
 {
     double action_0 = action_point(xm1, x0);
@@ -148,18 +94,7 @@ double action_2p(double xm1, double x0, double x1)
     return action_0 + action_m1;
 }
 
-double complex c_action_point(double x0, double x1)
-{
-    return a * (1./2. * m0 * cpow((x1-x0), 2) / cpow(a, 2) + (*potential_ptr)(x0));
-}
-
-double complex c_action_2p(double xm1, double x0, double x1)
-{
-    double complex action_0 = c_action_point(xm1, x0);
-    double complex action_m1 = c_action_point(x0, x1);
-    return action_0 + action_m1;
-}
-
+__global__
 void metropolis_step(double* xj) 
 {
     // double xjp = frand(xlower, xupper);
@@ -183,6 +118,7 @@ void metropolis_step(double* xj)
     };
 }
 
+__global__
 void metropolis_algo(
     double x0, double xN,
     unsigned int N_lattices, unsigned int N_measure, unsigned int N_montecarlo, unsigned int N_markov,
