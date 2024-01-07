@@ -252,6 +252,9 @@ int main()
     srand(time(NULL));
     // srand(42);
 
+
+    time_t time_start = time(NULL); // start measuring time
+
     potential_ptr = *potential;
 
     //// Fig. 4, 5
@@ -308,6 +311,11 @@ int main()
     metropolis_algo(0., 0., 1, 10, 1, 10, NULL, "anharmonic_correlation_b.csv");
     metropolis_algo(0., 0., 1, 10, 1, 15, NULL, "anharmonic_correlation_c.csv");
 
+    time_t time_finish = time(NULL); // time measured until now
+
+
+    const time_t total_time = difftime(time_finish, time_start);
+    printf("total time taken: %fs\n", (double)total_time);
 
 
 
