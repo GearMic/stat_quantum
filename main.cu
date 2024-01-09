@@ -7,8 +7,10 @@
 #include <string.h>
 #include <time.h>
 
+#include <curand_kernel.h>
+
 //// parameters
-int N;
+size_t N;
 double epsilon;
 double a;
 double Delta;
@@ -25,25 +27,35 @@ const double xupper = 2.;
 double (*potential_ptr)(double);
 
 
-#define ROWS 10
-#define COLS 20
 
+// // helper functions
+// double frand(double lower, double upper) // TODO: do this on the graphics card
+// {
+//     // static int seed;
+//     // seed = rand();
+//     // srand(seed);
+//     return lower + (upper - lower) * ((double)rand() / (double)RAND_MAX);
+// }
 
-// helper functions
-double frand(double lower, double upper) // TODO: do this on the graphics card
+__global__
+void setup_randomize(curandState_t* state)
 {
-    // static int seed;
-    // seed = rand();
-    // srand(seed);
-    return lower + (upper - lower) * ((double)rand() / (double)RAND_MAX);
+    size_t id = blockDim.x * blockIdx.x + threadIdx.x; // TODO: is this correct?
+    curand_init(1234, id, 0, &state[id]);
 }
 
-void randomize_double_array(double* array, unsigned int len, double lower, double upper)
+__global__
+void randomize_double_array(double* array, size_t len, double lower, double upper, curandState_t* state)
 {
-    for (unsigned int i=0; i<len; i++) {
-        array[i] = frand(xlower, xupper);
-        // array[i] = 0.; // for testing
+    size_t id = blockDim.x * blockIdx.x + threadIdx.x; // TODO: is this correct?
+    curandState_t localState = state[id];
+
+    size_t stride = blockDim.x;
+    for (unsigned int i=0; i<len; i+=stride) {
+        array[i] = xlower + (xupper - xlower) * curand_uniform_double(state);
     };
+
+    state[id] = localState;
 }
 
 void printfl(double x)
@@ -51,7 +63,7 @@ void printfl(double x)
     printf("%f\n", x);
 }
 
-void export_csv_double_1d(FILE* file, const unsigned int cols, double arr[])
+void export_csv_double_1d(FILE* file, double* arr, size_t cols) // TODO: rename cols parameter
 {
     for (int col=0; col<cols; col++) {
         fprintf(file, "%f%s", arr[col], (col==cols-1 ? "":","));
@@ -59,34 +71,34 @@ void export_csv_double_1d(FILE* file, const unsigned int cols, double arr[])
     fprintf(file, "\n");
 }
 
-void export_csv_double_2d(FILE* file, const unsigned int rows, const unsigned int cols, double arr[ROWS][COLS])
+void export_csv_double_2d(FILE* file, double* arr, size_t pitch, size_t width, size_t height)
 {
-    for (int row=0; row<rows; row++) {
-        export_csv_double_1d(file, cols, arr[row]);
+    for (int row=0; row<height; row++) {
+        export_csv_double_1d(file, (double*)((char*)arr + row*pitch), width);
     };
 }
 
 
 // big functions
-__global__
+__device__
 double potential(double x)
 {
     return 1./2. * pow(mu_sq, 2) * pow(x, 2) + lambda * pow(x, 4); // anharmonic oscillator potential
 }
 
-__global__
+__device__
 double potential_alt(double x)
 {
     return lambda * pow( pow(x, 2.f) - f_sq, 2.f );
 }
 
-__global__
+__device__
 double action_point(double x0, double x1)
 {
     return epsilon * (1./2. * m0 * pow((x1-x0), 2) / pow(epsilon, 2) + (*potential_ptr)(x0));
 }
 
-__global__
+__device__
 double action_2p(double xm1, double x0, double x1)
 {
     double action_0 = action_point(xm1, x0);
@@ -95,10 +107,13 @@ double action_2p(double xm1, double x0, double x1)
 }
 
 __global__
-void metropolis_step(double* xj) 
+void metropolis_step(double* xj, curandState_t* random_state) 
 {
+    size_t id = blockDim.x * blockIdx.x + threadIdx.x; // TODO: is this correct?
+    curandState_t localState = random_state[id];
     // double xjp = frand(xlower, xupper);
-    double xjp = frand(*xj - Delta, *xj + Delta); // xj-prime
+    double xjp = curand_uniform_double(&localState);
+    // randomize_double_array(&xjp, 1, xlower, xupper, &localState);
 
     double S_delta = action_2p(xj[-1], xjp, xj[1]) - action_2p(xj[-1], *xj, xj[1]);
 
@@ -109,74 +124,81 @@ void metropolis_step(double* xj)
         *xj = xjp;
     }
     else {
-        double test = frand(0., 1.);
-        // if (exp(-S_delta) > frand(0., 1.)) {
-        if (exp(-S_delta) > test) {
+        if (exp(-S_delta) > curand_uniform_double(&localState)) {
             // printf("a: %f %f\n", exp(-S_delta), test);
             *xj = xjp;
         };
     };
+
+    random_state[id] = localState;
 }
 
-__global__
+
 void metropolis_algo(
     double x0, double xN,
-    unsigned int N_lattices, unsigned int N_measure, unsigned int N_montecarlo, unsigned int N_markov,
+    size_t N_lattices, size_t N_measure, size_t N_montecarlo, size_t N_markov,
     char filename[], char equilibrium_filename[])
     // double ensemble[N_lattices*(1+N_measure)][N+1], double equilibrium_ensemble[N_lattices][N+1])
 {
     // ensemble
     // const unsigned int N_measurements = N_lattices * (1 + N_measure); // NOTE: for including the initial random lattice configurations
-    const unsigned int N_measurements = N_lattices * N_measure;
-    double ensemble[N_measurements][N+1];
-    double equilibrium_ensemble[N_lattices][N+1]; // array containing the "finished" states;
+    size_t N_measurements = N_lattices * N_measure;
+    // double ensemble[N_measurements][N+1];
+    // double equilibrium_ensemble[N_lattices][N+1]; // array containing the "finished" states;
 
+    // double *ensemble, *equilibrium_ensemble;
+    // size_t ensemble_pitch, equilibrium_pitch;
+    // cudaMallocPitch(&ensemble, &ensemble_pitch, N+1, N_measurements);
+    // cudaMallocPitch(&equilibrium_ensemble, &equilibrium_pitch, N+1, N_lattices);
 
-    double x[N+1];
+    curandState_t* random_state;
+    cudaMallocManaged(&random_state, N-1);
+    setup_randomize<<<1, N-1>>>(random_state);
+    
+    double *x, *ensemble;
+    cudaMallocManaged(&x, N+1);
+    // cudaMallocPitch(&ensemble, &ensemble_pitch, (N+1)*sizeof(double), N_measurements);
+    cudaMallocHost(&ensemble, N+1 * N_measurements * sizeof(double));
+    size_t ensemble_pitch = (N+1)*sizeof(double);
+    // double *ensemble = malloc(N_measurements * (N+1) * sizeof(double));
+
     // initialize boundary values
     x[0] = x0;
     x[N] = xN;
 
-    // // measure initial lattice configuration
-    // randomize_double_array(x+1, N-1, xlower, xupper);
-    // memcpy(ensemble[0], x, (N+1)*sizeof(double));
-
     // metropolis algorithm
     unsigned int measure_index = 0;
     for (int l=0; l<N_lattices; l++) {
-        randomize_double_array(x+1, N-1, xlower, xupper);
-        // // measure initial lattice configuration
-        // memcpy(ensemble[0], x, (N+1)*sizeof(double));
-        // measure_index++;
+        // use curand_uniform_double
+        randomize_double_array<<<1, N-1>>>(x+1, N-1, xlower, xupper, random_state);
 
         for (int j=0; j<N_measure; j++) {
             for (int k=0; k<N_montecarlo; k++) {
                 for (int i=1; i<N; i++) {
                     // N_markov metropolis steps on the lattice site 
                     for (int o=0; o<N_markov; o++) {
-                        metropolis_step(x+i);
+                        metropolis_step<<<1, 1>>>(x+i, random_state);
                     }
                 };
             };
             // measure the new lattice configuration
-            memcpy(ensemble[measure_index], x, (N+1)*sizeof(double));
+            cudaMemcpy((float*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyHostToHost);
             measure_index++;
         };
-        memcpy(equilibrium_ensemble[l], x, (N+1)*sizeof(double));
     }
 
     // write to csv
     if (filename) {
         FILE* file = fopen(filename, "w");
-        export_csv_double_2d(file, N_measurements, N+1, ensemble);
+        export_csv_double_2d(file, ensemble, ensemble_pitch, N+1, N_measurements);
         fclose(file);
     }
 
-    if (equilibrium_filename) {
-        FILE* equilibrium_file = fopen(equilibrium_filename, "w");
-        export_csv_double_2d(equilibrium_file, N_measurements, N+1, ensemble);
-        fclose(equilibrium_file);
-    }
+    // if (equilibrium_filename) {
+    //     FILE* equilibrium_file = fopen(equilibrium_filename, "w");
+    //     export_csv_double_2d(equilibrium_file, N_measurements, N+1, ensemble);
+    //     fclose(equilibrium_file);
+    // // }
 }
 
 // double correlation_function(unsigned int rows, unsigned int cols, double ensemble[rows][cols], )
