@@ -48,19 +48,11 @@ __device__ double Delta = 2.;
 
 
 // // helper functions
-// double frand(double lower, double upper) // TODO: do this on the graphics card
-// {
-//     // static int seed;
-//     // seed = rand();
-//     // srand(seed);
-//     return lower + (upper - lower) * ((double)rand() / (double)RAND_MAX);
-// }
-
 __global__
 void setup_randomize(curandState_t* state)
 {
     size_t id = blockDim.x * blockIdx.x + threadIdx.x; // TODO: is this correct?
-    curand_init(1234, id, 0, &state[id]);
+    curand_init(1245, id, 0, &state[id]);
 }
 
 __global__
@@ -77,17 +69,6 @@ void randomize_double_array(double* array, size_t len, double lower, double uppe
 
     state[id] = localState;
 }
-
-// __global__
-// void test_fn(double*array, size_t len)
-// {
-//     size_t id = threadIdx.x;
-//     size_t stride = blockDim.x;
-//     for (unsigned int i=id; i<len; i+=stride) {
-//         array[i] = 0.5;
-//     };
-// }
-
 
 void printfl(double x)
 {
@@ -147,23 +128,15 @@ void metropolis_step(double* xj, size_t metropolis_offset, size_t start_offset, 
 
     xj = xj + id * metropolis_offset + start_offset; // apply offset
 
-    // double xjp = frand(xlower, xupper);
     double xjp = curand_uniform_double(&localState) * (xupper-xlower) + xlower;
-    // printf("xjp: %f %i\n", xjp, (int)(xj[0]==xjp));
-    // randomize_double_array(&xjp, 1, xlower, xupper, &localState);
 
     double S_delta = action_2p(xj[-1], xjp, xj[1]) - action_2p(xj[-1], *xj, xj[1]);
 
     if (S_delta < 0) {
-        // if (fabs(*xj) < 0.15 && fabs(xj[-1]) < 0.15 && fabs(xj[1]) < 0.15) {
-        // printf("%f, %f, %f | %f\n", xj[-1], *xj, xj[1], xjp);
-        // printfl(S_delta);};
-        // printf("test, %f, %f\n", *xj, xjp);
         *xj = xjp;
     }
     else {
         if (exp(-S_delta) > curand_uniform_double(&localState)) {
-            // printf("a: %f %f\n", exp(-S_delta), test);
             *xj = xjp;
         };
     };
@@ -192,16 +165,10 @@ void metropolis_algo(
     // cudaMallocPitch(&ensemble, &ensemble_pitch, (N+1)*sizeof(double), N_measurements);
     CUDA_CALL(cudaMallocHost(&ensemble, (N+1) * N_measurements * sizeof(double)));
     size_t ensemble_pitch = (N+1)*sizeof(double);
-    // double *ensemble = malloc(N_measurements * (N+1) * sizeof(double));
 
     // initialize boundary values
     x[0] = x0;
     x[N] = xN;
-
-        // randomize_double_array<<<1, N-1>>>(x+1, N-1, xlower, xupper, random_state);
-        // randomize_double_array<<<1, 128>>>(x+1, N-1, xlower, xupper, random_state);
-        // test_fn<<<1, 123>>>(x+1, N-1);
-        // cudaDeviceSynchronize();
         
     // metropolis algorithm
     unsigned int measure_index = 0;
@@ -211,15 +178,12 @@ void metropolis_algo(
 
         for (size_t j=0; j<N_measure; j++) {
             for (size_t k=0; k<N_montecarlo; k++) {
-                // for (size_t i=1; i<N; i++) {
-                //     // N_markov metropolis steps on the lattice site 
                 for (size_t start_offset=0; start_offset<metropolis_offset; start_offset++) {
-                    // for (size_t o=0; o<N_markov; o++) {
+                    for (size_t o=0; o<N_markov; o++) {
                         metropolis_step<<<1, metropolis_kernels>>>(x+1, metropolis_offset, start_offset, xlower, xupper, random_state);
                         cudaDeviceSynchronize();
-                    // };
+                    };
                 };
-                // };
             };
             // measure the new lattice configuration
             CUDA_CALL(cudaMemcpy((float*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyHostToHost));
@@ -234,6 +198,7 @@ void metropolis_algo(
         fclose(file);
     }
 
+    // free
     cudaFree(random_state);
     cudaFree(x);
     cudaFree(ensemble);
@@ -259,7 +224,15 @@ int main()
     // epsilon = 1.;
     // Delta = 2 * sqrt(epsilon);
 
-    metropolis_algo(0., 0., 3, 5, 5, 5, "harmonic_a.csv", NULL);
+    metropolis_algo(0., 0., 3, 5, 5, 1, "harmonic_a.csv", NULL);
+
+
+    time_t time_finish = time(NULL); // time measured until now
+
+    const time_t total_time = difftime(time_finish, time_start);
+    printf("total time taken: %fs\n", (double)total_time);
+
+
 
 /*
     //// Fig. 6
@@ -308,11 +281,6 @@ int main()
     metropolis_algo(0., 0., 1, 10, 1, 15, NULL, "anharmonic_correlation_c.csv");
     */
 
-    time_t time_finish = time(NULL); // time measured until now
-
-
-    const time_t total_time = difftime(time_finish, time_start);
-    printf("total time taken: %fs\n", (double)total_time);
 
 
 
