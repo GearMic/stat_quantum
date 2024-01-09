@@ -79,6 +79,7 @@ for row in range(3):
     plt.plot(t, measurements[-row-1])
 
 plt.savefig(list_filename('plot/4/plot'), dpi=dpi)
+# plt.savefig('plot/4/ztest.png', dpi=dpi)
 
 
 ## Fig. 5

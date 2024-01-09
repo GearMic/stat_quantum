@@ -39,7 +39,7 @@ double xupper = 2.;
 __device__ double m0 = 1.0;
 __device__ double mu_sq = 1.0;
 __device__ double lambda = 0.0;
-size_t N = 1000;
+size_t N = 2000;
 // size_t N = 257; // for testing
 __device__ double epsilon = 1.;
 __device__ double Delta = 2.;
@@ -49,20 +49,23 @@ __device__ double Delta = 2.;
 
 // // helper functions
 __global__
-void setup_randomize(curandState_t* state)
+void setup_randomize(curandState_t* state, size_t len)
 {
     size_t id = blockDim.x * blockIdx.x + threadIdx.x; // TODO: is this correct?
-    curand_init(1245, id, 0, &state[id]);
+    size_t stride = blockDim.x;
+
+    for (unsigned int i=id; i<len; i+=stride) {
+        curand_init(1245, id, 0, &state[i]);
+    };
 }
 
 __global__
 void randomize_double_array(double* array, size_t len, double lower, double upper, curandState_t* state)
 {
     size_t id = blockDim.x * blockIdx.x + threadIdx.x; // TODO: is this correct?
-    // size_t id = threadIdx.x;
+    size_t stride = blockDim.x;
     curandState_t localState = state[id];
 
-    size_t stride = blockDim.x;
     for (unsigned int i=id; i<len; i+=stride) {
         array[i] = lower + (upper - lower) * curand_uniform_double(&localState);
     };
@@ -121,12 +124,15 @@ double action_2p(double xm1, double x0, double x1)
 }
 
 __global__
-void metropolis_step(double* xj, size_t metropolis_offset, size_t start_offset, double xlower, double xupper, curandState_t* random_state) 
+void metropolis_step(double* xj, size_t n_points, size_t kernel_offset, size_t start_offset, double xlower, double xupper, curandState_t* random_state) 
 {
     size_t id = blockDim.x * blockIdx.x + threadIdx.x; // TODO: is this correct?
     curandState_t localState = random_state[id];
 
-    xj = xj + id * metropolis_offset + start_offset; // apply offset
+    // apply offset
+    size_t offset = id * kernel_offset + start_offset;
+    if (offset >= n_points) return; // do nothing if the point would be out of range
+    xj = xj + offset;
 
     double xjp = curand_uniform_double(&localState) * (xupper-xlower) + xlower;
 
@@ -150,14 +156,23 @@ void metropolis_algo(
     size_t N_lattices, size_t N_measure, size_t N_montecarlo, size_t N_markov,
     const char filename[], const char equilibrium_filename[])
 {
+    // determine kernel amounts
     size_t metropolis_offset = 2; // offset between kernels. The smaller the number, the more kernels run in parallel. Minimum 2
     size_t metropolis_kernels = (int)ceil( (double)(N-1) / metropolis_offset ); // amount of kernels that are run in parallel
+
+    size_t max_kernels_per_block = 1024;
+    size_t metropolis_blocks = (int)ceil( (double)(metropolis_kernels) / max_kernels_per_block );
+
+    if (metropolis_blocks > 1) {
+        metropolis_kernels = max_kernels_per_block;
+    }
+
 
     size_t N_measurements = N_lattices * N_measure;
 
     curandState_t* random_state;
     CUDA_CALL(cudaMallocManaged(&random_state, (N-1) * sizeof(curandState_t)));
-    setup_randomize<<<1, N-1>>>(random_state);
+    setup_randomize<<<1, max_kernels_per_block>>>(random_state, N-1); // NOTE: this could be parallelized more efficiently, but it probably doesn' make a significant difference
     cudaDeviceSynchronize();
     
     double *x, *ensemble;
@@ -173,14 +188,15 @@ void metropolis_algo(
     // metropolis algorithm
     unsigned int measure_index = 0;
     for (int l=0; l<N_lattices; l++) {
-        randomize_double_array<<<1, N-1>>>(x+1, N-1, xlower, xupper, random_state);
+        randomize_double_array<<<1, max_kernels_per_block>>>(x+1, N-1, xlower, xupper, random_state);
         cudaDeviceSynchronize();
 
         for (size_t j=0; j<N_measure; j++) {
             for (size_t k=0; k<N_montecarlo; k++) {
                 for (size_t start_offset=0; start_offset<metropolis_offset; start_offset++) {
                     for (size_t o=0; o<N_markov; o++) {
-                        metropolis_step<<<1, metropolis_kernels>>>(x+1, metropolis_offset, start_offset, xlower, xupper, random_state);
+                        // metropolis_step<<<metropolis_blocks, metropolis_kernels>>>(x+1, N-1, metropolis_offset, start_offset, xlower, xupper, random_state);
+                        metropolis_step<<<10, 512>>>(x+1, N-1, metropolis_offset, start_offset, xlower, xupper, random_state);
                         cudaDeviceSynchronize();
                     };
                 };
