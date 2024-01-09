@@ -9,6 +9,18 @@
 
 #include <curand_kernel.h>
 
+// macro for error checking
+#define CUDA_CALL(x) do { \
+if((x) != cudaSuccess) { \
+    printf("Error at %s:%d\n",__FILE__,__LINE__); \
+}} while(0)
+#define CURAND_CALL(x) do { \
+if((x)!=CURAND_STATUS_SUCCESS) { \
+    printf("Error at %s:%d\n",__FILE__,__LINE__); \
+}} while(0)
+    // return EXIT_FAILURE;} 
+
+
 //// parameters
 // __device__ size_t N;
 // __device__ double epsilon;
@@ -27,7 +39,8 @@ double xupper = 2.;
 __device__ double m0 = 1.0;
 __device__ double mu_sq = 1.0;
 __device__ double lambda = 0.0;
-int N = 1000;
+size_t N = 1000;
+// size_t N = 257; // for testing
 __device__ double epsilon = 1.;
 __device__ double Delta = 2.;
 
@@ -54,15 +67,27 @@ __global__
 void randomize_double_array(double* array, size_t len, double lower, double upper, curandState_t* state)
 {
     size_t id = blockDim.x * blockIdx.x + threadIdx.x; // TODO: is this correct?
+    // size_t id = threadIdx.x;
     curandState_t localState = state[id];
 
     size_t stride = blockDim.x;
-    for (unsigned int i=0; i<len; i+=stride) {
-        array[i] = lower + (upper - lower) * curand_uniform_double(state);
+    for (unsigned int i=id; i<len; i+=stride) {
+        array[i] = lower + (upper - lower) * curand_uniform_double(&localState);
     };
 
     state[id] = localState;
 }
+
+// __global__
+// void test_fn(double*array, size_t len)
+// {
+//     size_t id = threadIdx.x;
+//     size_t stride = blockDim.x;
+//     for (unsigned int i=id; i<len; i+=stride) {
+//         array[i] = 0.5;
+//     };
+// }
+
 
 void printfl(double x)
 {
@@ -115,12 +140,16 @@ double action_2p(double xm1, double x0, double x1)
 }
 
 __global__
-void metropolis_step(double* xj, curandState_t* random_state) 
+void metropolis_step(double* xj, size_t metropolis_offset, size_t start_offset, double xlower, double xupper, curandState_t* random_state) 
 {
     size_t id = blockDim.x * blockIdx.x + threadIdx.x; // TODO: is this correct?
     curandState_t localState = random_state[id];
+
+    xj = xj + id * metropolis_offset + start_offset; // apply offset
+
     // double xjp = frand(xlower, xupper);
-    double xjp = curand_uniform_double(&localState);
+    double xjp = curand_uniform_double(&localState) * (xupper-xlower) + xlower;
+    // printf("xjp: %f %i\n", xjp, (int)(xj[0]==xjp));
     // randomize_double_array(&xjp, 1, xlower, xupper, &localState);
 
     double S_delta = action_2p(xj[-1], xjp, xj[1]) - action_2p(xj[-1], *xj, xj[1]);
@@ -129,6 +158,7 @@ void metropolis_step(double* xj, curandState_t* random_state)
         // if (fabs(*xj) < 0.15 && fabs(xj[-1]) < 0.15 && fabs(xj[1]) < 0.15) {
         // printf("%f, %f, %f | %f\n", xj[-1], *xj, xj[1], xjp);
         // printfl(S_delta);};
+        // printf("test, %f, %f\n", *xj, xjp);
         *xj = xjp;
     }
     else {
@@ -146,56 +176,56 @@ void metropolis_algo(
     double x0, double xN,
     size_t N_lattices, size_t N_measure, size_t N_montecarlo, size_t N_markov,
     const char filename[], const char equilibrium_filename[])
-    // double ensemble[N_lattices*(1+N_measure)][N+1], double equilibrium_ensemble[N_lattices][N+1])
 {
-    // ensemble
-    // const unsigned int N_measurements = N_lattices * (1 + N_measure); // NOTE: for including the initial random lattice configurations
-    size_t N_measurements = N_lattices * N_measure;
-    // double ensemble[N_measurements][N+1];
-    // double equilibrium_ensemble[N_lattices][N+1]; // array containing the "finished" states;
+    size_t metropolis_offset = 2; // offset between kernels. The smaller the number, the more kernels run in parallel. Minimum 2
+    size_t metropolis_kernels = (int)ceil( (double)(N-1) / metropolis_offset ); // amount of kernels that are run in parallel
 
-    // double *ensemble, *equilibrium_ensemble;
-    // size_t ensemble_pitch, equilibrium_pitch;
-    // cudaMallocPitch(&ensemble, &ensemble_pitch, N+1, N_measurements);
-    // cudaMallocPitch(&equilibrium_ensemble, &equilibrium_pitch, N+1, N_lattices);
+    size_t N_measurements = N_lattices * N_measure;
 
     curandState_t* random_state;
-    cudaMallocManaged(&random_state, (N-1) * sizeof(double));
+    CUDA_CALL(cudaMallocManaged(&random_state, (N-1) * sizeof(curandState_t)));
     setup_randomize<<<1, N-1>>>(random_state);
+    cudaDeviceSynchronize();
     
     double *x, *ensemble;
-    cudaMallocManaged(&x, (N+1) * sizeof(double));
+    CUDA_CALL(cudaMallocManaged(&x, (N+1) * sizeof(double)));
     // cudaMallocPitch(&ensemble, &ensemble_pitch, (N+1)*sizeof(double), N_measurements);
-    cudaMallocHost(&ensemble, (N+1) * N_measurements * sizeof(double));
+    CUDA_CALL(cudaMallocHost(&ensemble, (N+1) * N_measurements * sizeof(double)));
     size_t ensemble_pitch = (N+1)*sizeof(double);
     // double *ensemble = malloc(N_measurements * (N+1) * sizeof(double));
-
-    printf("test2\n");
 
     // initialize boundary values
     x[0] = x0;
     x[N] = xN;
 
+        // randomize_double_array<<<1, N-1>>>(x+1, N-1, xlower, xupper, random_state);
+        // randomize_double_array<<<1, 128>>>(x+1, N-1, xlower, xupper, random_state);
+        // test_fn<<<1, 123>>>(x+1, N-1);
+        // cudaDeviceSynchronize();
+        
     // metropolis algorithm
     unsigned int measure_index = 0;
     for (int l=0; l<N_lattices; l++) {
-        // use curand_uniform_double
         randomize_double_array<<<1, N-1>>>(x+1, N-1, xlower, xupper, random_state);
+        cudaDeviceSynchronize();
 
-        for (int j=0; j<N_measure; j++) {
-            for (int k=0; k<N_montecarlo; k++) {
-                for (int i=1; i<N; i++) {
-                    // N_markov metropolis steps on the lattice site 
-                    for (int o=0; o<N_markov; o++) {
-                        metropolis_step<<<1, 1>>>(x+i, random_state);
-                    }
+        for (size_t j=0; j<N_measure; j++) {
+            for (size_t k=0; k<N_montecarlo; k++) {
+                // for (size_t i=1; i<N; i++) {
+                //     // N_markov metropolis steps on the lattice site 
+                for (size_t start_offset=0; start_offset<metropolis_offset; start_offset++) {
+                    // for (size_t o=0; o<N_markov; o++) {
+                        metropolis_step<<<1, metropolis_kernels>>>(x+1, metropolis_offset, start_offset, xlower, xupper, random_state);
+                        cudaDeviceSynchronize();
+                    // };
                 };
+                // };
             };
             // measure the new lattice configuration
-            cudaMemcpy((float*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyHostToHost);
+            CUDA_CALL(cudaMemcpy((float*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyHostToHost));
             measure_index++;
         };
-    }
+    };
 
     // write to csv
     if (filename) {
@@ -204,14 +234,10 @@ void metropolis_algo(
         fclose(file);
     }
 
-    // if (equilibrium_filename) {
-    //     FILE* equilibrium_file = fopen(equilibrium_filename, "w");
-    //     export_csv_double_2d(equilibrium_file, N_measurements, N+1, ensemble);
-    //     fclose(equilibrium_file);
-    // // }
+    cudaFree(random_state);
+    cudaFree(x);
+    cudaFree(ensemble);
 }
-
-// double correlation_function(unsigned int rows, unsigned int cols, double ensemble[rows][cols], )
 
 
 
@@ -233,8 +259,7 @@ int main()
     // epsilon = 1.;
     // Delta = 2 * sqrt(epsilon);
 
-    printf("test\n");
-    metropolis_algo(0., 0., 3, 60, 5, 5, "harmonic_a.csv", NULL);
+    metropolis_algo(0., 0., 3, 5, 5, 5, "harmonic_a.csv", NULL);
 
 /*
     //// Fig. 6
