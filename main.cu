@@ -131,8 +131,9 @@ void metropolis_step(double* xj, size_t n_points, size_t kernel_offset, size_t s
 
     // apply offset
     size_t offset = id * kernel_offset + start_offset;
-    if (offset >= n_points) return; // do nothing if the point would be out of range
+    if (offset >= n_points) {printf("Offset %i rejected \n", offset); return;} // do nothing if the point would be out of range
     xj = xj + offset;
+
 
     double xjp = curand_uniform_double(&localState) * (xupper-xlower) + xlower;
 
@@ -196,7 +197,7 @@ void metropolis_algo(
                 for (size_t start_offset=0; start_offset<metropolis_offset; start_offset++) {
                     for (size_t o=0; o<N_markov; o++) {
                         // metropolis_step<<<metropolis_blocks, metropolis_kernels>>>(x+1, N-1, metropolis_offset, start_offset, xlower, xupper, random_state);
-                        metropolis_step<<<10, 512>>>(x+1, N-1, metropolis_offset, start_offset, xlower, xupper, random_state);
+                        metropolis_step<<<4, 892>>>(x+1, N-1, metropolis_offset, start_offset, xlower, xupper, random_state);
                         cudaDeviceSynchronize();
                     };
                 };
