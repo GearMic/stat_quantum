@@ -10,21 +10,27 @@
 #include <curand_kernel.h>
 
 //// parameters
-size_t N;
-double epsilon;
-double a;
-double Delta;
-// double complex a = I * epsilon;
-double m0;
-// potential
-double mu_sq;
-double lambda;
-double f_sq;
-// x range
-const double xlower = -2.;
-const double xupper = 2.;
+// __device__ size_t N;
+// __device__ double epsilon;
+__device__ double a;
+// __device__ double Delta;
+// __device__ double m0;
+// __device__ double mu_sq;
+// __device__ double lambda;
+__device__ double f_sq;
+// __device__ double xlower = -2.;
+// __device__ double xupper = 2.;
+double xlower = -2.;
+double xupper = 2.;
 
-double (*potential_ptr)(double);
+
+__device__ double m0 = 1.0;
+__device__ double mu_sq = 1.0;
+__device__ double lambda = 0.0;
+int N = 1000;
+__device__ double epsilon = 1.;
+__device__ double Delta = 2.;
+
 
 
 
@@ -52,7 +58,7 @@ void randomize_double_array(double* array, size_t len, double lower, double uppe
 
     size_t stride = blockDim.x;
     for (unsigned int i=0; i<len; i+=stride) {
-        array[i] = xlower + (xupper - xlower) * curand_uniform_double(state);
+        array[i] = lower + (upper - lower) * curand_uniform_double(state);
     };
 
     state[id] = localState;
@@ -91,6 +97,8 @@ double potential_alt(double x)
 {
     return lambda * pow( pow(x, 2.f) - f_sq, 2.f );
 }
+
+__device__ double (*potential_ptr)(double) = *potential;
 
 __device__
 double action_point(double x0, double x1)
@@ -137,7 +145,7 @@ void metropolis_step(double* xj, curandState_t* random_state)
 void metropolis_algo(
     double x0, double xN,
     size_t N_lattices, size_t N_measure, size_t N_montecarlo, size_t N_markov,
-    char filename[], char equilibrium_filename[])
+    const char filename[], const char equilibrium_filename[])
     // double ensemble[N_lattices*(1+N_measure)][N+1], double equilibrium_ensemble[N_lattices][N+1])
 {
     // ensemble
@@ -152,15 +160,17 @@ void metropolis_algo(
     // cudaMallocPitch(&equilibrium_ensemble, &equilibrium_pitch, N+1, N_lattices);
 
     curandState_t* random_state;
-    cudaMallocManaged(&random_state, N-1);
+    cudaMallocManaged(&random_state, (N-1) * sizeof(double));
     setup_randomize<<<1, N-1>>>(random_state);
     
     double *x, *ensemble;
-    cudaMallocManaged(&x, N+1);
+    cudaMallocManaged(&x, (N+1) * sizeof(double));
     // cudaMallocPitch(&ensemble, &ensemble_pitch, (N+1)*sizeof(double), N_measurements);
-    cudaMallocHost(&ensemble, N+1 * N_measurements * sizeof(double));
+    cudaMallocHost(&ensemble, (N+1) * N_measurements * sizeof(double));
     size_t ensemble_pitch = (N+1)*sizeof(double);
     // double *ensemble = malloc(N_measurements * (N+1) * sizeof(double));
+
+    printf("test2\n");
 
     // initialize boundary values
     x[0] = x0;
@@ -213,17 +223,20 @@ int main()
 
     time_t time_start = time(NULL); // start measuring time
 
-    potential_ptr = *potential;
+    // potential_ptr = *potential;
 
     //// Fig. 4, 5
-    m0 = 1.0;
-    mu_sq = 1.0;
-    lambda = 0.0;
-    N = 1000;
-    epsilon = 1.;
-    Delta = 2 * sqrt(epsilon);
+    // m0 = 1.0;
+    // mu_sq = 1.0;
+    // lambda = 0.0;
+    // N = 1000;
+    // epsilon = 1.;
+    // Delta = 2 * sqrt(epsilon);
+
+    printf("test\n");
     metropolis_algo(0., 0., 3, 60, 5, 5, "harmonic_a.csv", NULL);
 
+/*
     //// Fig. 6
     m0 = 0.5;
     mu_sq = 2.0;
@@ -268,6 +281,7 @@ int main()
     metropolis_algo(0., 0., 1, 10, 1, 5, NULL, "anharmonic_correlation_a.csv");
     metropolis_algo(0., 0., 1, 10, 1, 10, NULL, "anharmonic_correlation_b.csv");
     metropolis_algo(0., 0., 1, 10, 1, 15, NULL, "anharmonic_correlation_c.csv");
+    */
 
     time_t time_finish = time(NULL); // time measured until now
 
