@@ -39,7 +39,7 @@ double xupper = 2.;
 __device__ double m0 = 1.0;
 __device__ double mu_sq = 1.0;
 __device__ double lambda = 0.0;
-size_t N = 2000;
+size_t N = 200000;
 // size_t N = 257; // for testing
 __device__ double epsilon = 1.;
 __device__ double Delta = 2.;
@@ -126,12 +126,15 @@ double action_2p(double xm1, double x0, double x1)
 __global__
 void metropolis_step(double* xj, size_t n_points, size_t kernel_offset, size_t start_offset, double xlower, double xupper, curandState_t* random_state) 
 {
-    size_t id = blockDim.x * blockIdx.x + threadIdx.x; // TODO: is this correct?
+    size_t id = blockDim.x * blockIdx.x + threadIdx.x;
     curandState_t localState = random_state[id];
 
     // apply offset
     size_t offset = id * kernel_offset + start_offset;
-    if (offset >= n_points) {printf("Offset %i rejected \n", offset); return;} // do nothing if the point would be out of range
+    if (offset >= n_points) { // do nothing if the point would be out of range
+        // printf("Offset %i rejected \n", offset);
+        return;
+    } 
     xj = xj + offset;
 
 
@@ -161,7 +164,8 @@ void metropolis_algo(
     size_t metropolis_offset = 2; // offset between kernels. The smaller the number, the more kernels run in parallel. Minimum 2
     size_t metropolis_kernels = (int)ceil( (double)(N-1) / metropolis_offset ); // amount of kernels that are run in parallel
 
-    size_t max_kernels_per_block = 1024;
+    // size_t max_kernels_per_block = 1024;
+    size_t max_kernels_per_block = 512;
     size_t metropolis_blocks = (int)ceil( (double)(metropolis_kernels) / max_kernels_per_block );
 
     if (metropolis_blocks > 1) {
@@ -190,15 +194,15 @@ void metropolis_algo(
     unsigned int measure_index = 0;
     for (int l=0; l<N_lattices; l++) {
         randomize_double_array<<<1, max_kernels_per_block>>>(x+1, N-1, xlower, xupper, random_state);
-        cudaDeviceSynchronize();
+        CUDA_CALL(cudaDeviceSynchronize());
 
         for (size_t j=0; j<N_measure; j++) {
             for (size_t k=0; k<N_montecarlo; k++) {
                 for (size_t start_offset=0; start_offset<metropolis_offset; start_offset++) {
                     for (size_t o=0; o<N_markov; o++) {
-                        // metropolis_step<<<metropolis_blocks, metropolis_kernels>>>(x+1, N-1, metropolis_offset, start_offset, xlower, xupper, random_state);
-                        metropolis_step<<<4, 892>>>(x+1, N-1, metropolis_offset, start_offset, xlower, xupper, random_state);
-                        cudaDeviceSynchronize();
+                        metropolis_step<<<metropolis_blocks, metropolis_kernels>>>(x+1, N-1, metropolis_offset, start_offset, xlower, xupper, random_state);
+                        // metropolis_step<<<256, 896>>>(x+1, N-1, metropolis_offset, start_offset, xlower, xupper, random_state);
+                        CUDA_CALL(cudaDeviceSynchronize());
                     };
                 };
             };
@@ -225,9 +229,21 @@ void metropolis_algo(
 
 int main()
 {
-    srand(time(NULL));
-    // srand(42);
+    // Query CUDA device properties
+    int nDevices;
 
+    cudaGetDeviceCount(&nDevices);
+    for (int i = 0; i < nDevices; i++) {
+        cudaDeviceProp prop;
+        cudaGetDeviceProperties(&prop, i);
+        printf("Device Number: %i\n", i);
+        printf("Device name: %s\n", prop.name);
+        printf("Max threads per block: %i\n", prop.maxThreadsPerBlock);
+        // printf("  Memory Clock Rate (KHz): %d\n", prop.memoryClockRate);
+        // printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
+        // printf("  Peak Memory Bandwidth (GB/s): %f\n\n", 2.0*prop.memoryClockRate*(prop.memoryBusWidth/8)/1.0e6);
+    }
+    
 
     time_t time_start = time(NULL); // start measuring time
 
