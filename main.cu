@@ -37,27 +37,16 @@ if(err != CURAND_STATUS_SUCCESS) { \
 
 
 //// parameters
-// __device__ size_t N;
-// __device__ double epsilon;
 __device__ double a;
-// __device__ double Delta;
-// __device__ double m0;
-// __device__ double mu_sq;
-// __device__ double lambda;
 __device__ double f_sq;
-// __device__ double xlower = -2.;
-// __device__ double xupper = 2.;
-double xlower = -2.;
-double xupper = 2.;
-
-
 __device__ double m0 = 1.0;
 __device__ double mu_sq = 1.0;
 __device__ double lambda = 0.0;
-// size_t N = 257; // for testing
 __device__ double epsilon = 1.;
 __device__ double Delta = 2.;
 
+double xlower = -2.;
+double xupper = 2.;
 size_t N = 2000;
 const size_t max_threads_per_block = 512;
 
