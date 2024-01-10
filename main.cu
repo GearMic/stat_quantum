@@ -9,16 +9,31 @@
 
 #include <curand_kernel.h>
 
-// macro for error checking
+
+// macros for error checking
+#ifndef NDEBUG
 #define CUDA_CALL(x) do { \
-if((x) != cudaSuccess) { \
+cudaError_t err = x; \
+if(err != cudaSuccess) { \
     printf("Error at %s:%d\n",__FILE__,__LINE__); \
+    printf("%s\n", cudaGetErrorString(err)); \
 }} while(0)
 #define CURAND_CALL(x) do { \
-if((x)!=CURAND_STATUS_SUCCESS) { \
+cudaError_t err = x; \
+if(err != CURAND_STATUS_SUCCESS) { \
     printf("Error at %s:%d\n",__FILE__,__LINE__); \
+    printf("%s\n", cudaGetErrorString(err)); \
 }} while(0)
-    // return EXIT_FAILURE;} 
+
+#else
+#define CUDA_CALL(x) do { \
+    x; \
+}} while(0)
+#define CURAND_CALL(x) do { \
+    x; \
+}} while(0)
+
+#endif
 
 
 //// parameters
@@ -39,11 +54,12 @@ double xupper = 2.;
 __device__ double m0 = 1.0;
 __device__ double mu_sq = 1.0;
 __device__ double lambda = 0.0;
-size_t N = 200000;
 // size_t N = 257; // for testing
 __device__ double epsilon = 1.;
 __device__ double Delta = 2.;
 
+size_t N = 2000;
+const size_t max_threads_per_block = 512;
 
 
 
@@ -164,12 +180,11 @@ void metropolis_algo(
     size_t metropolis_offset = 2; // offset between kernels. The smaller the number, the more kernels run in parallel. Minimum 2
     size_t metropolis_kernels = (int)ceil( (double)(N-1) / metropolis_offset ); // amount of kernels that are run in parallel
 
-    // size_t max_kernels_per_block = 1024;
-    size_t max_kernels_per_block = 512;
-    size_t metropolis_blocks = (int)ceil( (double)(metropolis_kernels) / max_kernels_per_block );
+    // size_t max_kernels_per_block = 896;
+    size_t metropolis_blocks = (int)ceil( (double)(metropolis_kernels) / max_threads_per_block );
 
     if (metropolis_blocks > 1) {
-        metropolis_kernels = max_kernels_per_block;
+        metropolis_kernels = max_threads_per_block;
     }
 
 
@@ -177,7 +192,7 @@ void metropolis_algo(
 
     curandState_t* random_state;
     CUDA_CALL(cudaMallocManaged(&random_state, (N-1) * sizeof(curandState_t)));
-    setup_randomize<<<1, max_kernels_per_block>>>(random_state, N-1); // NOTE: this could be parallelized more efficiently, but it probably doesn' make a significant difference
+    setup_randomize<<<1, max_threads_per_block>>>(random_state, N-1); // NOTE: this could be parallelized more efficiently, but it probably doesn' make a significant difference
     cudaDeviceSynchronize();
     
     double *x, *ensemble;
@@ -193,7 +208,7 @@ void metropolis_algo(
     // metropolis algorithm
     unsigned int measure_index = 0;
     for (int l=0; l<N_lattices; l++) {
-        randomize_double_array<<<1, max_kernels_per_block>>>(x+1, N-1, xlower, xupper, random_state);
+        randomize_double_array<<<1, max_threads_per_block>>>(x+1, N-1, xlower, xupper, random_state);
         CUDA_CALL(cudaDeviceSynchronize());
 
         for (size_t j=0; j<N_measure; j++) {
@@ -201,7 +216,6 @@ void metropolis_algo(
                 for (size_t start_offset=0; start_offset<metropolis_offset; start_offset++) {
                     for (size_t o=0; o<N_markov; o++) {
                         metropolis_step<<<metropolis_blocks, metropolis_kernels>>>(x+1, N-1, metropolis_offset, start_offset, xlower, xupper, random_state);
-                        // metropolis_step<<<256, 896>>>(x+1, N-1, metropolis_offset, start_offset, xlower, xupper, random_state);
                         CUDA_CALL(cudaDeviceSynchronize());
                     };
                 };
@@ -220,8 +234,9 @@ void metropolis_algo(
     }
 
     // free
-    cudaFree(random_state);
-    cudaFree(x);
+    CUDA_CALL(cudaFree(random_state));
+    CUDA_CALL(cudaFree(x));
+    // CUDA_CALL(cudaFree(ensemble));
     cudaFree(ensemble);
 }
 
