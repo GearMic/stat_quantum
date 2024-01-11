@@ -1,5 +1,3 @@
-// clang -o a main.c -lm
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -10,7 +8,7 @@
 #include <curand_kernel.h>
 
 
-// macros for error checking
+//// macros for error checking
 #ifndef NDEBUG
 #define CUDA_CALL(x) do { \
 cudaError_t err = x; \
@@ -22,7 +20,7 @@ if(err != cudaSuccess) { \
 cudaError_t err = x; \
 if(err != CURAND_STATUS_SUCCESS) { \
     printf("Error at %s:%d\n",__FILE__,__LINE__); \
-    printf("%s\n", cudaGetErrorString(err)); \
+    printf("\t%s\n", cudaGetErrorString(err)); \
 }} while(0)
 
 #else
@@ -48,11 +46,11 @@ __device__ double Delta = 2.;
 double xlower = -2.;
 double xupper = 2.;
 size_t N = 2000;
+// size_t max_kernels_per_block = 896;
 const size_t max_threads_per_block = 512;
 
 
-
-// // helper functions
+//// helper functions
 __global__
 void setup_randomize(curandState_t* state, size_t len)
 {
@@ -60,7 +58,7 @@ void setup_randomize(curandState_t* state, size_t len)
     size_t stride = blockDim.x;
 
     for (unsigned int i=id; i<len; i+=stride) {
-        curand_init(1245, id, 0, &state[i]);
+        curand_init(1234, id, 0, &state[i]);
     };
 }
 
@@ -99,7 +97,7 @@ void export_csv_double_2d(FILE* file, double* arr, size_t pitch, size_t width, s
 }
 
 
-// big functions
+//// big functions
 __device__
 double potential(double x)
 {
@@ -169,14 +167,13 @@ void metropolis_algo(
     size_t metropolis_offset = 2; // offset between kernels. The smaller the number, the more kernels run in parallel. Minimum 2
     size_t metropolis_kernels = (int)ceil( (double)(N-1) / metropolis_offset ); // amount of kernels that are run in parallel
 
-    // size_t max_kernels_per_block = 896;
     size_t metropolis_blocks = (int)ceil( (double)(metropolis_kernels) / max_threads_per_block );
 
     if (metropolis_blocks > 1) {
         metropolis_kernels = max_threads_per_block;
     }
 
-
+    // initialize data arrays
     size_t N_measurements = N_lattices * N_measure;
 
     curandState_t* random_state;
@@ -186,11 +183,9 @@ void metropolis_algo(
     
     double *x, *ensemble;
     CUDA_CALL(cudaMallocManaged(&x, (N+1) * sizeof(double)));
-    // cudaMallocPitch(&ensemble, &ensemble_pitch, (N+1)*sizeof(double), N_measurements);
     CUDA_CALL(cudaMallocHost(&ensemble, (N+1) * N_measurements * sizeof(double)));
     size_t ensemble_pitch = (N+1)*sizeof(double);
 
-    // initialize boundary values
     x[0] = x0;
     x[N] = xN;
         
@@ -215,18 +210,16 @@ void metropolis_algo(
         };
     };
 
-    // write to csv
+    // write data and cleanup
     if (filename) {
         FILE* file = fopen(filename, "w");
         export_csv_double_2d(file, ensemble, ensemble_pitch, N+1, N_measurements);
         fclose(file);
     }
 
-    // free
     CUDA_CALL(cudaFree(random_state));
     CUDA_CALL(cudaFree(x));
-    // CUDA_CALL(cudaFree(ensemble));
-    cudaFree(ensemble);
+    CUDA_CALL(cudaFreeHost(ensemble));
 }
 
 
@@ -243,104 +236,8 @@ int main()
         printf("Device Number: %i\n", i);
         printf("Device name: %s\n", prop.name);
         printf("Max threads per block: %i\n", prop.maxThreadsPerBlock);
-        // printf("  Memory Clock Rate (KHz): %d\n", prop.memoryClockRate);
-        // printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
-        // printf("  Peak Memory Bandwidth (GB/s): %f\n\n", 2.0*prop.memoryClockRate*(prop.memoryBusWidth/8)/1.0e6);
     }
     
-
-    time_t time_start = time(NULL); // start measuring time
-
-    // potential_ptr = *potential;
-
-    //// Fig. 4, 5
-    // m0 = 1.0;
-    // mu_sq = 1.0;
-    // lambda = 0.0;
-    // N = 1000;
-    // epsilon = 1.;
-    // Delta = 2 * sqrt(epsilon);
-
+    // Fig 4, 5
     metropolis_algo(0., 0., 3, 5, 5, 1, "harmonic_a.csv", NULL);
-
-
-    time_t time_finish = time(NULL); // time measured until now
-
-    const time_t total_time = difftime(time_finish, time_start);
-    printf("total time taken: %fs\n", (double)total_time);
-
-
-
-/*
-    //// Fig. 6
-    m0 = 0.5;
-    mu_sq = 2.0;
-    lambda = 0.0;
-    N = 51;
-    epsilon = 0.5;
-    Delta = 2 * sqrt(epsilon);
-    metropolis_algo(0., 0., 1, 10, 1, 5, "harmonic_b.csv", NULL);
-    // metropolis_algo(0., 0., 50, 1, 50, 5, "harmonic_b.csv", NULL);
-    // metropolis_algo(0., 0., 6, 60, 5, 5, NULL, "harmonic_b.csv");
-
-    // use the f_sq potential from here on
-    potential_ptr = *potential_alt;
-
-    //// Fig. 7
-    m0 = 0.5;
-    lambda = 1.0;
-    epsilon = 1.0;
-    N = 50;
-
-    f_sq = 0.5;
-    metropolis_algo(0., 0., 1, 1, 40, 5, "anharmonic_a.csv", NULL);
-    f_sq = 1.0;
-    metropolis_algo(0., 0., 1, 1, 40, 5, "anharmonic_b.csv", NULL);
-    f_sq = 2.0;
-    metropolis_algo(0., 0., 1, 1, 40, 5, "anharmonic_c.csv", NULL);
-
-    //// Fig. 8
-    m0 = 0.5;
-    f_sq = 2.0;
-    N = 200;
-    epsilon = 0.25;
-    metropolis_algo(0., 0., 10, 50, 10, 5, NULL, "anharmonic_e.csv");
-    // metropolis_algo(0., 0., 100, 50, 10, 5, NULL, "anharmonic_d.csv");
-    // metropolis_algo(0., 0., 100, 50, 1, 5, "anharmonic_d.csv", NULL);
-
-    // //// Fig. 9
-    m0 = 0.5;
-    f_sq = 2.0;
-    N = 303;
-    a = 0.25;
-    metropolis_algo(0., 0., 1, 10, 1, 5, NULL, "anharmonic_correlation_a.csv");
-    metropolis_algo(0., 0., 1, 10, 1, 10, NULL, "anharmonic_correlation_b.csv");
-    metropolis_algo(0., 0., 1, 10, 1, 15, NULL, "anharmonic_correlation_c.csv");
-    */
-
-
-
-
-
-/*
-    // bin the data
-    double bin_lower = -5.;
-    double bin_upper = 5.;
-    const unsigned int N_bins = 30;
-
-    double bins[N_bins];
-    double bins_range[N_bins];
-
-    bin_data(ensemble, N_lattices*(N+1), bins, N_bins, bin_lower, bin_upper);
-    // bin_data(measurements, N_measurements*(N+1), bins, N_bins, bin_lower, bin_upper);
-    bin_range(bins_range, N_bins, bin_lower, bin_upper);
-
-    FILE* bin_file = fopen("bins.csv", "w");
-    export_csv_double_1d(bin_file, N_bins, bins_range);
-    export_csv_double_1d(bin_file, N_bins, bins);
-    fclose(bin_file);
-
-    printf("%i %i\n", N_measurements, measure_index);
-    printf("%i %i\n", N_measurements, N+1);
-*/
 }
