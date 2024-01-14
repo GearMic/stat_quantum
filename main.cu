@@ -35,17 +35,38 @@ if(err != CURAND_STATUS_SUCCESS) { \
 
 
 //// parameters
-__device__ double a;
-__device__ double f_sq;
-__device__ double m0 = 1.0;
-__device__ double mu_sq = 1.0;
-__device__ double lambda = 0.0;
-__device__ double epsilon = 1.;
-__device__ double Delta = 2.;
+struct metropolis_parameters
+{
+    double metropolis_offset;
+    double xlower;
+    double xupper;
+    double x0;
+    double xN;
+    double a;
+    size_t N;
+    size_t N_lattices;   
+    size_t N_measure;
+    size_t N_montecarlo;
+    size_t N_markov;
+    double Delta;
 
-double xlower = -2.;
-double xupper = 2.;
-size_t N = 2000;
+    double m0;
+    double lambda;
+    double mu_sq;
+    double f_sq;
+};
+
+// __device__ double a;
+// __device__ double f_sq;
+// __device__ double m0 = 1.0;
+// __device__ double mu_sq = 1.0;
+// __device__ double lambda = 0.0;
+// __device__ double epsilon = 1.;
+// __device__ double Delta = 2.;
+
+// double xlower = -2.;
+// double xupper = 2.;
+// size_t N = 2000;
 // size_t max_kernels_per_block = 896;
 const size_t max_threads_per_block = 512;
 
@@ -99,36 +120,38 @@ void export_csv_double_2d(FILE* file, double* arr, size_t pitch, size_t width, s
 
 //// big functions
 __device__
-double potential(double x)
+double potential(double x, metropolis_parameters params)
 {
-    return 1./2. * pow(mu_sq, 2) * pow(x, 2) + lambda * pow(x, 4); // anharmonic oscillator potential
+    return 1./2. * pow(params.mu_sq, 2) * pow(x, 2) + params.lambda * pow(x, 4); // anharmonic oscillator potential
+}
+
+// __device__
+// double potential_alt(double x)
+// {
+//     return lambda * pow( pow(x, 2.f) - f_sq, 2.f );
+// }
+
+__device__ double (*potential_ptr)(double, metropolis_parameters) = *potential;
+
+__device__
+double action_point(double x0, double x1, metropolis_parameters params)
+{
+    return params.a * (1./2. * params.m0 * pow((x1-x0), 2) / pow(params.a, 2) + (*potential_ptr)(x0, params));
 }
 
 __device__
-double potential_alt(double x)
+double action_2p(double xm1, double x0, double x1, metropolis_parameters parameters)
 {
-    return lambda * pow( pow(x, 2.f) - f_sq, 2.f );
-}
-
-__device__ double (*potential_ptr)(double) = *potential;
-
-__device__
-double action_point(double x0, double x1)
-{
-    return epsilon * (1./2. * m0 * pow((x1-x0), 2) / pow(epsilon, 2) + (*potential_ptr)(x0));
-}
-
-__device__
-double action_2p(double xm1, double x0, double x1)
-{
-    double action_0 = action_point(xm1, x0);
-    double action_m1 = action_point(x0, x1);
+    double action_0 = action_point(xm1, x0, parameters);
+    double action_m1 = action_point(x0, x1, parameters);
     return action_0 + action_m1;
 }
 
 __global__
-void metropolis_step(double* xj, size_t n_points, size_t kernel_offset, size_t start_offset, double xlower, double xupper, curandState_t* random_state) 
+void metropolis_step(double* xj, size_t n_points, size_t kernel_offset, size_t start_offset, metropolis_parameters parameters, curandState_t* random_state) 
 {
+    double Delta = parameters.Delta;
+
     size_t id = blockDim.x * blockIdx.x + threadIdx.x;
     curandState_t localState = random_state[id];
 
@@ -140,10 +163,9 @@ void metropolis_step(double* xj, size_t n_points, size_t kernel_offset, size_t s
     } 
     xj = xj + offset;
 
-
-    double xjp = curand_uniform_double(&localState) * (xupper-xlower) + xlower;
-
-    double S_delta = action_2p(xj[-1], xjp, xj[1]) - action_2p(xj[-1], *xj, xj[1]);
+    // double xjp = curand_uniform_double(&localState) * (xupper-xlower) + xlower;
+    double xjp = curand_uniform_double(&localState) * (2*Delta) + *xj - Delta;
+    double S_delta = action_2p(xj[-1], xjp, xj[1], parameters) - action_2p(xj[-1], *xj, xj[1], parameters);
 
     if (S_delta < 0) {
         *xj = xjp;
@@ -158,17 +180,23 @@ void metropolis_step(double* xj, size_t n_points, size_t kernel_offset, size_t s
 }
 
 
-void metropolis_algo(
-    double x0, double xN,
-    size_t N_lattices, size_t N_measure, size_t N_montecarlo, size_t N_markov,
-    const char filename[], const char equilibrium_filename[])
+void metropolis_algo(metropolis_parameters parameters, const char filename[])
 {
+    // parameters that are used directly
+    size_t metropolis_offset = parameters.metropolis_offset; // offset between kernels. The smaller the number, the more kernels run in parallel. Minimum 2
+    double xlower = parameters.xlower;
+    double xupper = parameters.xupper;
+    double x0 = parameters.x0;
+    double xN = parameters.xN;
+    size_t N = parameters.N;
+    size_t N_lattices = parameters.N_lattices;
+    size_t N_measure = parameters.N_measure;
+    size_t N_montecarlo = parameters.N_montecarlo;
+    size_t N_markov = parameters.N_markov;
+
     // determine kernel amounts
-    size_t metropolis_offset = 2; // offset between kernels. The smaller the number, the more kernels run in parallel. Minimum 2
     size_t metropolis_kernels = (int)ceil( (double)(N-1) / metropolis_offset ); // amount of kernels that are run in parallel
-
     size_t metropolis_blocks = (int)ceil( (double)(metropolis_kernels) / max_threads_per_block );
-
     if (metropolis_blocks > 1) {
         metropolis_kernels = max_threads_per_block;
     }
@@ -178,7 +206,7 @@ void metropolis_algo(
 
     curandState_t* random_state;
     CUDA_CALL(cudaMallocManaged(&random_state, (N-1) * sizeof(curandState_t)));
-    setup_randomize<<<1, max_threads_per_block>>>(random_state, N-1); // NOTE: this could be parallelized more efficiently, but it probably doesn' make a significant difference
+    setup_randomize<<<1, max_threads_per_block>>>(random_state, N-1); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
     cudaDeviceSynchronize();
     
     double *x, *ensemble;
@@ -199,7 +227,7 @@ void metropolis_algo(
             for (size_t k=0; k<N_montecarlo; k++) {
                 for (size_t start_offset=0; start_offset<metropolis_offset; start_offset++) {
                     for (size_t o=0; o<N_markov; o++) {
-                        metropolis_step<<<metropolis_blocks, metropolis_kernels>>>(x+1, N-1, metropolis_offset, start_offset, xlower, xupper, random_state);
+                        metropolis_step<<<metropolis_blocks, metropolis_kernels>>>(x+1, N-1, metropolis_offset, start_offset, parameters, random_state);
                         CUDA_CALL(cudaDeviceSynchronize());
                     };
                 };
@@ -216,7 +244,6 @@ void metropolis_algo(
         export_csv_double_2d(file, ensemble, ensemble_pitch, N+1, N_measurements);
         fclose(file);
     }
-
     CUDA_CALL(cudaFree(random_state));
     CUDA_CALL(cudaFree(x));
     CUDA_CALL(cudaFreeHost(ensemble));
@@ -237,7 +264,17 @@ int main()
         printf("Device name: %s\n", prop.name);
         printf("Max threads per block: %i\n", prop.maxThreadsPerBlock);
     }
-    
+
+
+    metropolis_parameters parameters = {
+    .metropolis_offset = 2,
+    .xlower = -2., .xupper = 2., .x0 = 0.0, .xN = 0.0,
+    .a = 1., .N = 2000,
+    .N_lattices = 3, .N_measure = 5, .N_montecarlo = 5, .N_markov = 1, .Delta = 2.0,
+    .m0 = 1.0, .lambda = 0.0, .mu_sq = 1.0,
+    .f_sq = -1.0 // placeholder value
+    };
+
     // Fig 4, 5
-    metropolis_algo(0., 0., 3, 5, 5, 1, "harmonic_a.csv", NULL);
+    metropolis_algo(parameters, "harmonic_a.csv");
 }
