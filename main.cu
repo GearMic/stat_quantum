@@ -44,6 +44,7 @@ struct metropolis_parameters
     double xN;
     double a;
     size_t N;
+    size_t N_until_equilibrium;
     size_t N_lattices;   
     size_t N_measure;
     size_t N_montecarlo;
@@ -189,6 +190,7 @@ void metropolis_algo(metropolis_parameters parameters, const char filename[])
     double x0 = parameters.x0;
     double xN = parameters.xN;
     size_t N = parameters.N;
+    size_t N_until_equilibrium = parameters.N_until_equilibrium;
     size_t N_lattices = parameters.N_lattices;
     size_t N_measure = parameters.N_measure;
     size_t N_montecarlo = parameters.N_montecarlo;
@@ -223,6 +225,17 @@ void metropolis_algo(metropolis_parameters parameters, const char filename[])
         randomize_double_array<<<1, max_threads_per_block>>>(x+1, N-1, xlower, xupper, random_state);
         CUDA_CALL(cudaDeviceSynchronize());
 
+        // wait until equilibrium
+        for (size_t j=0; j<N_until_equilibrium; j++) {
+            for (size_t start_offset=0; start_offset<metropolis_offset; start_offset++) {
+                for (size_t o=0; o<N_markov; o++) {
+                    metropolis_step<<<metropolis_blocks, metropolis_kernels>>>(x+1, N-1, metropolis_offset, start_offset, parameters, random_state);
+                    CUDA_CALL(cudaDeviceSynchronize());
+                };
+            };
+        }
+
+        // start measuring
         for (size_t j=0; j<N_measure; j++) {
             for (size_t k=0; k<N_montecarlo; k++) {
                 for (size_t start_offset=0; start_offset<metropolis_offset; start_offset++) {
@@ -270,7 +283,7 @@ int main()
     .metropolis_offset = 2,
     .xlower = -2., .xupper = 2., .x0 = 0.0, .xN = 0.0,
     .a = 1., .N = 2000,
-    .N_lattices = 3, .N_measure = 5, .N_montecarlo = 5, .N_markov = 1, .Delta = 2.0,
+    .N_until_equilibrium = 50, .N_lattices = 3, .N_measure = 5, .N_montecarlo = 5, .N_markov = 1, .Delta = 2.0,
     .m0 = 1.0, .lambda = 0.0, .mu_sq = 1.0,
     .f_sq = -1.0 // placeholder value
     };
