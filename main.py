@@ -5,16 +5,18 @@ import matplotlib.pyplot as plt
 import os.path
 
 
-def list_filename(name, suffix='.png'): # to save plots successively
-    i = 0
-    while True:
-        filename = '%s%i%s' % (name, i, suffix)
-        if os.path.isfile(filename):
-            i += 1
-            continue
+# def list_filename(name, suffix='.png'): # to save plots successively
+#     i = 0
+#     while True:
+#         filename = '%s%i%s' % (name, i, suffix)
+#         if os.path.isfile(filename):
+#             i += 1
+#             continue
 
-        return filename
+#         return filename
 
+def list_filename(name, suffix='.png'): # saving successively got annoying
+    return name + suffix
 
 def correlation_function(ensemble: np.ndarray, m: int, a):
     rows, cols = ensemble.shape
