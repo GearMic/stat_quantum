@@ -114,10 +114,14 @@ if len(data_b.shape) == 1:
 rows, cols = data_b.shape
 
 correlation_x = np.array(tuple(m*epsilon for m in range(cols)))
-correlation_y = np.array(tuple(correlation_function_periodic(data_b, m, epsilon) for m in range(cols)))
+correlation_y = np.array(tuple(correlation_function(data_b, m, epsilon) for m in range(cols)))
+
 # j = 1
 # correlation_y = np.array(tuple(correlation_function_alt(data_b, m, epsilon, 1) for m in range(cols-j)))
 # correlation_x = np.array(tuple(m*epsilon for m in range(cols-j)))
+
+# correlation_x = np.array(tuple(m*epsilon for m in range(cols)))
+# correlation_y = np.array(tuple(correlation_function_periodic(data_b, m, epsilon) for m in range(cols)))
 
 fig, ax = plt.subplots()
 ax.set_yscale('log')

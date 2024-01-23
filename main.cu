@@ -282,12 +282,66 @@ int main()
     metropolis_parameters parameters = {
     .metropolis_offset = 2,
     .xlower = -2., .xupper = 2., .x0 = 0.0, .xN = 0.0,
-    .a = 1., .N = 2000,
-    .N_until_equilibrium = 50, .N_lattices = 3, .N_measure = 5, .N_montecarlo = 5, .N_markov = 1, .Delta = 2.0,
+    .a = 1., .N = 1000,
+    .N_until_equilibrium = 100, .N_lattices = 3, .N_measure = 60, .N_montecarlo = 5, .N_markov = 1, .Delta = 2.0,
     .m0 = 1.0, .lambda = 0.0, .mu_sq = 1.0,
     .f_sq = -1.0 // placeholder value
     };
 
+
     // Fig 4, 5
-    metropolis_algo(parameters, "harmonic_a.csv");
-}
+    metropolis_parameters parameters_4_5 = parameters;
+    metropolis_algo(parameters_4_5, "harmonic_a.csv");
+
+    //// Fig. 6
+    metropolis_parameters parameters_6 = parameters;
+    parameters_6.N = 51;
+    parameters_6.N_montecarlo = 20;
+    parameters_6.mu_sq = 2.0;
+    parameters_6.a = 0.5;
+    parameters_6.Delta = 2 * sqrt(parameters.a);
+    metropolis_algo(parameters_6, "harmonic_b.csv");
+
+    // TODO: use the f_sq potential from here on
+    // potential_ptr = *potential_alt;
+
+    // Fig. 7
+    metropolis_parameters parameters_7 = parameters;
+    parameters_7.N = 50;
+    parameters_7.N_lattices = 1;
+    parameters_7.N_measure = 1;
+    parameters_7.N_montecarlo = 40;
+    parameters_7.N_markov = 5;
+    parameters_7.lambda = 1.0;
+    parameters_7.a = 1.0;
+    parameters_7.Delta = 2 * sqrt(parameters.a);
+    parameters_7.m0 = 0.5;
+
+    // parameters_7.f_sq = 0.5;
+    // metropolis_algo(parameters_7, "anharmonic_a.csv");
+    // parameters_7.f_sq = 1.0;
+    // metropolis_algo(parameters_7, "anharmonic_b.csv");
+    // parameters_7.f_sq = 2.0;
+    // metropolis_algo(parameters_7, "anharmonic_c.csv");
+
+    /*
+    // Fig. 8
+    m0 = 0.5;
+    f_sq = 2.0;
+    N = 200;
+    epsilon = 0.25;
+    metropolis_algo(0., 0., 10, 50, 10, 5, NULL, "anharmonic_e.csv");
+    // metropolis_algo(0., 0., 100, 50, 10, 5, NULL, "anharmonic_d.csv");
+    // metropolis_algo(0., 0., 100, 50, 1, 5, "anharmonic_d.csv", NULL);
+
+    // //// Fig. 9
+    m0 = 0.5;
+    f_sq = 2.0;
+    N = 303;
+    a = 0.25;
+    metropolis_algo(0., 0., 1, 10, 1, 5, NULL, "anharmonic_correlation_a.csv");
+    metropolis_algo(0., 0., 1, 10, 1, 10, NULL, "anharmonic_correlation_b.csv");
+    metropolis_algo(0., 0., 1, 10, 1, 15, NULL, "anharmonic_correlation_c.csv");
+    */
+
+} 
