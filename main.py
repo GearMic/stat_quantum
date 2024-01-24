@@ -18,17 +18,19 @@ import os.path
 def list_filename(name, suffix='.png'): # saving successively got annoying
     return name + suffix
 
-def correlation_function(ensemble: np.ndarray, m: int, a):
+def correlation_function(ensemble: np.ndarray, m: int):
     rows, cols = ensemble.shape
 
     correlation_sum = 0
+    j = 3
     for i in range(rows):
         row = ensemble[i]
-        for j in range(cols-m):
-            correlation_sum += row[j] * row[j+m]
+        # for j in range(cols-m):
+        #     correlation_sum += row[j] * row[j+m]
+        correlation_sum += row[j] * row[j+m]
 
-    return 1 / rows / (cols-m) * correlation_sum
-
+    # return 1 / rows / (cols-m) * correlation_sum
+    return 1 / rows * correlation_sum
 
 def correlation_function_alt(ensemble: np.ndarray, m: int, a: float, j: int = 0):
     rows, cols = ensemble.shape
@@ -108,13 +110,21 @@ plt.savefig(list_filename('plot/5/bins'), dpi=dpi)
 ## Fig. 6
 epsilon = 0.5
 
-data_b = np.genfromtxt('harmonic_b.csv', delimiter=',')
-if len(data_b.shape) == 1:
-    data_b = np.expand_dims(data_b, 0)
-rows, cols = data_b.shape
+data = np.genfromtxt('harmonic_b.csv', delimiter=',')
+if len(data.shape) == 1:
+    data = np.expand_dims(data, 0)
+rows, cols = data.shape
 
-correlation_x = np.array(tuple(m*epsilon for m in range(cols)))
-correlation_y = np.array(tuple(correlation_function(data_b, m, epsilon) for m in range(cols)))
+m_range = range(1, cols-4)
+x_range = range(len(m_range))
+correlation_x = np.array(tuple(m*epsilon for m in x_range))
+correlation_y = np.array(tuple(correlation_function(data, m) for m in m_range))
+
+x_sq_mean = np.mean(data[:, 3] ** 2)
+print(x_sq_mean)
+
+# correlation_x = np.array(tuple(m*epsilon for m in range(cols)))
+# correlation_y = np.array(tuple(correlation_function(data_b, m) for m in range(cols)))
 
 # j = 1
 # correlation_y = np.array(tuple(correlation_function_alt(data_b, m, epsilon, 1) for m in range(cols-j)))
