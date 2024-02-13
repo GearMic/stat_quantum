@@ -204,25 +204,23 @@ void metropolis_call(metropolis_parameters parameters, double* x, curandState* r
     };
 }
 
-void write_metropolis_data(const char filename[], double* ensemble, size_t ensemble_pitch, metropolis_parameters params)
+void write_metropolis_data(const char filename[], double* ensemble, size_t pitch, size_t width, size_t height)
 // write metropolis data. Takes in pointer to data on device memory
 {
-    size_t N = params.N;
-    size_t N_measurements = params.N_lattices * params.N_measure;
-
     double* ensemble_host;
-    CUDA_CALL(cudaMallocHost(&ensemble_host, N_measurements * (N+1)*sizeof(double)));
-    CUDA_CALL(cudaMemcpy2D(ensemble_host, (N+1)*sizeof(double), ensemble, ensemble_pitch, (N+1)*sizeof(double), N_measurements, cudaMemcpyDeviceToHost));
+    CUDA_CALL(cudaMallocHost(&ensemble_host, height * width*sizeof(double)));
+    CUDA_CALL(cudaMemcpy2D(ensemble_host, width*sizeof(double), ensemble, pitch, width*sizeof(double), height, cudaMemcpyDeviceToHost));
     if (filename) {
         FILE* file = fopen(filename, "w");
-        export_csv_double_2d(file, ensemble_host, (N+1)*sizeof(double), N+1, N_measurements);
+        export_csv_double_2d(file, ensemble_host, width*sizeof(double), width, height);
         fclose(file);
     }
 
     CUDA_CALL(cudaFreeHost(ensemble_host));
 }
 
-void metropolis_algo(metropolis_parameters parameters, const char filename[])
+void metropolis_algo(double** ensemble_out, size_t* pitch, size_t* width, size_t* height, metropolis_parameters parameters)
+// executes the metropolis algorithm, writes data into ensemble, pitch in bytes into pitch, width in doubles into width, height into height
 {
     // parameters that are used directly
     size_t metropolis_offset = parameters.metropolis_offset; // offset between kernels. The smaller the number, the more kernels run in parallel. Minimum 2
@@ -281,11 +279,13 @@ void metropolis_algo(metropolis_parameters parameters, const char filename[])
         };
     };
 
-    // write data and cleanup
-    write_metropolis_data(filename, ensemble, ensemble_pitch, parameters);
+    // return and cleanup
+    *ensemble_out = ensemble;
+    *pitch = ensemble_pitch;
+    *width = N+1;
+    *height = N_measurements;
     CUDA_CALL(cudaFree(random_state));
     CUDA_CALL(cudaFree(x));
-    CUDA_CALL(cudaFree(ensemble));
 }
 
 
@@ -315,6 +315,13 @@ int main()
     };
 
 
+    // plot action
+    metropolis_parameters params_0 = parameters;
+    // TODOTODOTODOTODO
+
+
+
+/*
     // Fig 4, 5
     metropolis_parameters parameters_4_5 = parameters;
     metropolis_algo(parameters_4_5, "harmonic_a.csv");
@@ -327,6 +334,7 @@ int main()
     parameters_6.a = 0.5;
     parameters_6.Delta = 2 * sqrt(parameters.a);
     metropolis_algo(parameters_6, "harmonic_b.csv");
+*/
 
     // TODO: use the f_sq potential from here on
     // potential_ptr = *potential_alt;
