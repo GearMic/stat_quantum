@@ -254,19 +254,19 @@ void metropolis_algo(metropolis_parameters parameters, const char filename[])
                 metropolis_call(parameters, x, random_state, metropolis_blocks, metropolis_kernels);
             };
             // measure the new lattice configuration
-            //TODO: this should be double* ?
-            CUDA_CALL(cudaMemcpy((float*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyDeviceToDevice));
+            CUDA_CALL(cudaMemcpy((double*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyDeviceToDevice));
             measure_index++;
         };
     };
 
     // write data
     double* ensemble_host;
-    CUDA_CALL(cudaMallocHost(&ensemble_host, N_measurements * ensemble_pitch));
-    CUDA_CALL(cudaMemcpy(ensemble, ensemble_host, N_measurements * ensemble_pitch, cudaMemcpyDeviceToHost));
+    CUDA_CALL(cudaMallocHost(&ensemble_host, N_measurements * (N+1)*sizeof(double)));
+    // CUDA_CALL(cudaMemcpy2D(ensemble, ensemble_host, N_measurements * ensemble_pitch, cudaMemcpyDeviceToHost));
+    CUDA_CALL(cudaMemcpy2D(ensemble_host, (N+1)*sizeof(double), ensemble, ensemble_pitch, (N+1)*sizeof(double), N_measurements, cudaMemcpyDeviceToHost));
     if (filename) {
         FILE* file = fopen(filename, "w");
-        export_csv_double_2d(file, ensemble_host, ensemble_pitch, N+1, N_measurements);
+        export_csv_double_2d(file, ensemble_host, (N+1)*sizeof(double), N+1, N_measurements);
         fclose(file);
     }
 
