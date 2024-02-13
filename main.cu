@@ -212,7 +212,6 @@ void metropolis_algo(metropolis_parameters parameters, const char filename[])
     size_t N_lattices = parameters.N_lattices;
     size_t N_measure = parameters.N_measure;
     size_t N_montecarlo = parameters.N_montecarlo;
-    size_t N_markov = parameters.N_markov;
 
     // determine kernel amounts
     size_t metropolis_kernels = (int)ceil( (double)(N-1) / metropolis_offset ); // amount of kernels that are run in parallel
@@ -245,25 +244,13 @@ void metropolis_algo(metropolis_parameters parameters, const char filename[])
 
         // wait until equilibrium
         for (size_t j=0; j<N_until_equilibrium; j++) {
-            for (size_t start_offset=0; start_offset<metropolis_offset; start_offset++) {
-                for (size_t o=0; o<N_markov; o++) {
-                    metropolis_step<<<metropolis_blocks, metropolis_kernels>>>
-                        (x+1, N-1, start_offset, parameters, random_state);
-                    CUDA_CALL(cudaDeviceSynchronize());
-                };
-            };
+            metropolis_call(parameters, x, random_state, metropolis_blocks, metropolis_kernels);
         }
 
         // start measuring
         for (size_t j=0; j<N_measure; j++) {
             for (size_t k=0; k<N_montecarlo; k++) {
-                for (size_t start_offset=0; start_offset<metropolis_offset; start_offset++) {
-                    for (size_t o=0; o<N_markov; o++) {
-                        metropolis_step<<<metropolis_blocks, metropolis_kernels>>>
-                            (x+1, N-1, start_offset, parameters, random_state);
-                        CUDA_CALL(cudaDeviceSynchronize());
-                    };
-                };
+                metropolis_call(parameters, x, random_state, metropolis_blocks, metropolis_kernels);
             };
             // measure the new lattice configuration
             CUDA_CALL(cudaMemcpy((float*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyHostToHost));
