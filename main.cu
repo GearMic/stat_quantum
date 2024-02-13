@@ -187,7 +187,6 @@ void metropolis_step(double* xj, size_t n_points, size_t start_offset, metropoli
     random_state[id] = localState;
 }
 
-
 void metropolis_call(metropolis_parameters parameters, double* x, curandState* random_state, size_t metropolis_blocks, size_t metropolis_kernels) {
     for (size_t start_offset=0; start_offset<parameters.metropolis_offset; start_offset++) {
         for (size_t o=0; o<parameters.N_markov; o++) {
@@ -230,8 +229,10 @@ void metropolis_algo(metropolis_parameters parameters, const char filename[])
     
     double *x, *ensemble;
     CUDA_CALL(cudaMallocManaged(&x, (N+1) * sizeof(double)));
-    CUDA_CALL(cudaMallocHost(&ensemble, (N+1) * N_measurements * sizeof(double)));
-    size_t ensemble_pitch = (N+1)*sizeof(double);
+    // CUDA_CALL(cudaMallocHost(&ensemble, (N+1) * N_measurements * sizeof(double)));
+    // size_t ensemble_pitch = (N+1)*sizeof(double);
+    size_t ensemble_pitch;
+    CUDA_CALL(cudaMallocPitch(&ensemble, &ensemble_pitch, (N+1) * sizeof(double), N_measurements));
 
     x[0] = x0;
     x[N] = xN;
@@ -253,20 +254,27 @@ void metropolis_algo(metropolis_parameters parameters, const char filename[])
                 metropolis_call(parameters, x, random_state, metropolis_blocks, metropolis_kernels);
             };
             // measure the new lattice configuration
-            CUDA_CALL(cudaMemcpy((float*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyHostToHost));
+            //TODO: this should be double* ?
+            CUDA_CALL(cudaMemcpy((float*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyDeviceToDevice));
             measure_index++;
         };
     };
 
-    // write data and cleanup
+    // write data
+    double* ensemble_host;
+    CUDA_CALL(cudaMallocHost(&ensemble_host, N_measurements * ensemble_pitch));
+    CUDA_CALL(cudaMemcpy(ensemble, ensemble_host, N_measurements * ensemble_pitch, cudaMemcpyDeviceToHost));
     if (filename) {
         FILE* file = fopen(filename, "w");
-        export_csv_double_2d(file, ensemble, ensemble_pitch, N+1, N_measurements);
+        export_csv_double_2d(file, ensemble_host, ensemble_pitch, N+1, N_measurements);
         fclose(file);
     }
+
+    // cleanup
     CUDA_CALL(cudaFree(random_state));
     CUDA_CALL(cudaFree(x));
-    CUDA_CALL(cudaFreeHost(ensemble));
+    CUDA_CALL(cudaFree(ensemble));
+    CUDA_CALL(cudaFreeHost(ensemble_host));
 }
 
 
