@@ -148,12 +148,18 @@ double action_2p(double xm1, double x0, double x1, metropolis_parameters paramet
     return action_0 + action_m1;
 }
 
-// __global__ double action(double* lattices, size_t n, double* actions)
-// {
-//     size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
+__global__ 
+void action(double* lattice, double* action, metropolis_parameters params) 
+{
+    size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
 
-    
-// }
+    if (idx >= params.N-1) {
+        return;
+    };
+
+    lattice += 1 + idx;
+    *action = action_2p(lattice[-1], lattice[0], lattice[1], params);
+}
 
 __global__
 void metropolis_step(double* xj, size_t n_points, size_t start_offset, metropolis_parameters parameters, curandState_t* random_state) 
@@ -198,6 +204,24 @@ void metropolis_call(metropolis_parameters parameters, double* x, curandState* r
     };
 }
 
+void write_metropolis_data(const char filename[], double* ensemble, size_t ensemble_pitch, metropolis_parameters params)
+// write metropolis data. Takes in pointer to data on device memory
+{
+    size_t N = params.N;
+    size_t N_measurements = params.N_lattices * params.N_measure;
+
+    double* ensemble_host;
+    CUDA_CALL(cudaMallocHost(&ensemble_host, N_measurements * (N+1)*sizeof(double)));
+    CUDA_CALL(cudaMemcpy2D(ensemble_host, (N+1)*sizeof(double), ensemble, ensemble_pitch, (N+1)*sizeof(double), N_measurements, cudaMemcpyDeviceToHost));
+    if (filename) {
+        FILE* file = fopen(filename, "w");
+        export_csv_double_2d(file, ensemble_host, (N+1)*sizeof(double), N+1, N_measurements);
+        fclose(file);
+    }
+
+    CUDA_CALL(cudaFreeHost(ensemble_host));
+}
+
 void metropolis_algo(metropolis_parameters parameters, const char filename[])
 {
     // parameters that are used directly
@@ -229,8 +253,6 @@ void metropolis_algo(metropolis_parameters parameters, const char filename[])
     
     double *x, *ensemble;
     CUDA_CALL(cudaMallocManaged(&x, (N+1) * sizeof(double)));
-    // CUDA_CALL(cudaMallocHost(&ensemble, (N+1) * N_measurements * sizeof(double)));
-    // size_t ensemble_pitch = (N+1)*sizeof(double);
     size_t ensemble_pitch;
     CUDA_CALL(cudaMallocPitch(&ensemble, &ensemble_pitch, (N+1) * sizeof(double), N_measurements));
 
@@ -259,22 +281,11 @@ void metropolis_algo(metropolis_parameters parameters, const char filename[])
         };
     };
 
-    // write data
-    double* ensemble_host;
-    CUDA_CALL(cudaMallocHost(&ensemble_host, N_measurements * (N+1)*sizeof(double)));
-    // CUDA_CALL(cudaMemcpy2D(ensemble, ensemble_host, N_measurements * ensemble_pitch, cudaMemcpyDeviceToHost));
-    CUDA_CALL(cudaMemcpy2D(ensemble_host, (N+1)*sizeof(double), ensemble, ensemble_pitch, (N+1)*sizeof(double), N_measurements, cudaMemcpyDeviceToHost));
-    if (filename) {
-        FILE* file = fopen(filename, "w");
-        export_csv_double_2d(file, ensemble_host, (N+1)*sizeof(double), N+1, N_measurements);
-        fclose(file);
-    }
-
-    // cleanup
+    // write data and cleanup
+    write_metropolis_data(filename, ensemble, ensemble_pitch, parameters);
     CUDA_CALL(cudaFree(random_state));
     CUDA_CALL(cudaFree(x));
     CUDA_CALL(cudaFree(ensemble));
-    CUDA_CALL(cudaFreeHost(ensemble_host));
 }
 
 
