@@ -148,8 +148,15 @@ double action_2p(double xm1, double x0, double x1, metropolis_parameters paramet
     return action_0 + action_m1;
 }
 
+// __global__ double action(double* lattices, size_t n, double* actions)
+// {
+//     size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
+
+    
+// }
+
 __global__
-void metropolis_step(double* xj, size_t n_points, size_t kernel_offset, size_t start_offset, metropolis_parameters parameters, curandState_t* random_state) 
+void metropolis_step(double* xj, size_t n_points, size_t start_offset, metropolis_parameters parameters, curandState_t* random_state) 
 {
     double Delta = parameters.Delta;
 
@@ -157,7 +164,7 @@ void metropolis_step(double* xj, size_t n_points, size_t kernel_offset, size_t s
     curandState_t localState = random_state[id];
 
     // apply offset
-    size_t offset = id * kernel_offset + start_offset;
+    size_t offset = id * parameters.metropolis_offset + start_offset;
     if (offset >= n_points) { // do nothing if the point would be out of range
         // printf("Offset %i rejected \n", offset);
         return;
@@ -180,6 +187,17 @@ void metropolis_step(double* xj, size_t n_points, size_t kernel_offset, size_t s
     random_state[id] = localState;
 }
 
+
+void metropolis_call(metropolis_parameters parameters, double* x, curandState* random_state, size_t metropolis_blocks, size_t metropolis_kernels) {
+    for (size_t start_offset=0; start_offset<parameters.metropolis_offset; start_offset++) {
+        for (size_t o=0; o<parameters.N_markov; o++) {
+            metropolis_step
+                <<<metropolis_blocks, metropolis_kernels>>>
+                (x+1, parameters.N-1, start_offset, parameters, random_state);
+            CUDA_CALL(cudaDeviceSynchronize());
+        };
+    };
+}
 
 void metropolis_algo(metropolis_parameters parameters, const char filename[])
 {
@@ -229,7 +247,8 @@ void metropolis_algo(metropolis_parameters parameters, const char filename[])
         for (size_t j=0; j<N_until_equilibrium; j++) {
             for (size_t start_offset=0; start_offset<metropolis_offset; start_offset++) {
                 for (size_t o=0; o<N_markov; o++) {
-                    metropolis_step<<<metropolis_blocks, metropolis_kernels>>>(x+1, N-1, metropolis_offset, start_offset, parameters, random_state);
+                    metropolis_step<<<metropolis_blocks, metropolis_kernels>>>
+                        (x+1, N-1, start_offset, parameters, random_state);
                     CUDA_CALL(cudaDeviceSynchronize());
                 };
             };
@@ -240,7 +259,8 @@ void metropolis_algo(metropolis_parameters parameters, const char filename[])
             for (size_t k=0; k<N_montecarlo; k++) {
                 for (size_t start_offset=0; start_offset<metropolis_offset; start_offset++) {
                     for (size_t o=0; o<N_markov; o++) {
-                        metropolis_step<<<metropolis_blocks, metropolis_kernels>>>(x+1, N-1, metropolis_offset, start_offset, parameters, random_state);
+                        metropolis_step<<<metropolis_blocks, metropolis_kernels>>>
+                            (x+1, N-1, start_offset, parameters, random_state);
                         CUDA_CALL(cudaDeviceSynchronize());
                     };
                 };
@@ -306,16 +326,16 @@ int main()
     // potential_ptr = *potential_alt;
 
     // Fig. 7
-    metropolis_parameters parameters_7 = parameters;
-    parameters_7.N = 50;
-    parameters_7.N_lattices = 1;
-    parameters_7.N_measure = 1;
-    parameters_7.N_montecarlo = 40;
-    parameters_7.N_markov = 5;
-    parameters_7.lambda = 1.0;
-    parameters_7.a = 1.0;
-    parameters_7.Delta = 2 * sqrt(parameters.a);
-    parameters_7.m0 = 0.5;
+    // metropolis_parameters parameters_7 = parameters;
+    // parameters_7.N = 50;
+    // parameters_7.N_lattices = 1;
+    // parameters_7.N_measure = 1;
+    // parameters_7.N_montecarlo = 40;
+    // parameters_7.N_markov = 5;
+    // parameters_7.lambda = 1.0;
+    // parameters_7.a = 1.0;
+    // parameters_7.Delta = 2 * sqrt(parameters.a);
+    // parameters_7.m0 = 0.5;
 
     // parameters_7.f_sq = 0.5;
     // metropolis_algo(parameters_7, "anharmonic_a.csv");
@@ -345,3 +365,6 @@ int main()
     */
 
 } 
+
+
+// TODO: fix end points (start and end should be regarded as the same point)
