@@ -82,8 +82,8 @@ for row in range(3):
     # plt.plot(t, measurements[row])
     plt.plot(t, measurements[-row-1])
 
-plt.savefig(list_filename('plot/4/plot'), dpi=dpi)
-# plt.savefig('plot/4/ztest.png', dpi=dpi)
+# plt.savefig(list_filename('plot/4/plot'), dpi=dpi)
+plt.savefig('plot/4_plot.png', dpi=dpi)
 
 
 ## Fig. 5
@@ -104,7 +104,8 @@ func_y = 0.59 * np.exp(-1.1 * func_x**2)
 plt.clf()
 plt.plot(bins_x, bins_y, 'x', ms=4)#, color='tab:red')
 plt.plot(func_x, func_y, lw=.75, color='tab:gray')
-plt.savefig(list_filename('plot/5/bins'), dpi=dpi)
+# plt.savefig(list_filename('plot/5/bins'), dpi=dpi)
+plt.savefig('plot/5_bins.png', dpi=dpi)
 
 
 ## Fig. 6
@@ -139,7 +140,8 @@ ax.yaxis.set_major_formatter(plt.ScalarFormatter())
 plt.xlim(0.0, 3.0)
 # plt.clf()
 ax.plot(correlation_x, correlation_y, 'x', ms=4)
-plt.savefig(list_filename('plot/6/correlation'), dpi=dpi)
+# plt.savefig(list_filename('plot/6/correlation'), dpi=dpi)
+plt.savefig('plot/6_correlation.png', dpi=dpi)
 ## TODO: find low-lying energy levels
 
 
@@ -170,7 +172,8 @@ for i in range(len(axs)):
     ax.set_title('$f^2 = %.1f$' % f_sq)
 
 fig.suptitle('Fig. 7')
-fig.savefig(list_filename('plot/7/anharmonic'), dpi=dpi)
+fig.savefig('plot/7_anharmonic.png', dpi=dpi)
+# fig.savefig(list_filename('plot/7/anharmonic'), dpi=dpi)
 
 
 #### Fig. 8
@@ -187,7 +190,8 @@ bins_x, bins_y = bin_normalized(data, 60, xlower, xupper)
 plt.clf()
 plt.plot(bins_x, bins_y, 'x', ms=4)#, color='tab:red')
 # plt.plot(func_x, func_y, lw=.75, color='tab:gray')
-plt.savefig(list_filename('plot/8/bins'), dpi=dpi)
+# plt.savefig(list_filename('plot/8/bins'), dpi=dpi)
+plt.savefig('plot/8_bins.png', dpi=dpi)
 
 
 #### Fig. 9
@@ -211,7 +215,8 @@ for data, marker in zip(anharmonic_correlation, markers):
 
     ax.plot(correlation_x, correlation_y, marker, ms=4)
 
-fig.savefig(list_filename('plot/9/correlation'), dpi=dpi)
+# fig.savefig(list_filename('plot/9/correlation'), dpi=dpi)
+fig.savefig('plot/9_correlation.png', dpi=dpi)
 
 
 #### Fig. 10
