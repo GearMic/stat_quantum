@@ -130,14 +130,6 @@ double potential(double x, metropolis_parameters params)
     return 1./2. * params.mu_sq * pow(x, 2) + params.lambda * pow(x, 4); // anharmonic oscillator potential
 }
 
-// __device__
-// double potential_alt(double x)
-// {
-//     return lambda * pow( pow(x, 2.f) - f_sq, 2.f );
-// }
-
-// __device__ double (*potential_ptr)(double, metropolis_parameters) = *potential;
-
 __device__
 double action_point(double x0, double x1, metropolis_parameters params)
 {
@@ -150,19 +142,6 @@ double action_2p(double xm1, double x0, double x1, metropolis_parameters paramet
     double action_0 = action_point(xm1, x0, parameters);
     double action_m1 = action_point(x0, x1, parameters);
     return action_0 + action_m1;
-}
-
-__global__ 
-void action_latticeconf(double* lattice, metropolis_parameters params, double* action) 
-{
-    size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
-
-    if (idx >= params.N) {
-        return;
-    };
-
-    lattice += idx;
-    *action += action_point(lattice[0], lattice[1], params);
 }
 
 __global__ 
@@ -239,11 +218,8 @@ void metropolis_call(metropolis_parameters params, double* x, curandState* rando
 void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t* pitch, size_t* width, size_t* height)
 // executes the metropolis algorithm, writes data into ensemble, pitch in bytes into pitch, width in doubles into width, height into height
 {
-    // parameters that are used directly
     size_t metropolis_offset = params.metropolis_offset; // offset between kernels. The smaller the number, the more kernels run in parallel. Minimum 2
     size_t N = params.N;
-    size_t N_measure = params.N_measure;
-    size_t N_montecarlo = params.N_montecarlo;
 
     // determine kernel amounts
     size_t metropolis_kernels = (size_t)ceil( (double)(N-1) / metropolis_offset ); // amount of kernels that are run in parallel
@@ -253,7 +229,7 @@ void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t
     }
 
     // initialize data arrays
-    size_t N_measurements = N_measure;
+    size_t N_measurements = params.N_measure;
 
     curandState_t *random_state, *random_state_algo;
     CUDA_CALL(cudaMallocManaged(&random_state, (N-1) * sizeof(curandState_t)));
@@ -281,8 +257,8 @@ void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t
     }
 
     // start measuring
-    for (size_t j=0; j<N_measure; j++) {
-        for (size_t k=0; k<N_montecarlo; k++) {
+    for (size_t j=0; j<params.N_measure; j++) {
+        for (size_t k=0; k<params.N_montecarlo; k++) {
             metropolis_call(params, x, random_state_algo, metropolis_blocks, metropolis_kernels);
         };
         // measure the new lattice configuration
@@ -300,7 +276,7 @@ void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t
     CUDA_CALL(cudaFree(x));
 }
 
-void metropolis_allinone(const char* filename, metropolis_parameters params)
+void metropolis_allinone(metropolis_parameters params, const char* filename)
 {
     double* ensemble;
     size_t pitch, width, height;
@@ -375,16 +351,16 @@ int main()
 
     // Fig 4, 5
     metropolis_parameters params_4_5 = params;
-    metropolis_allinone("harmonic_a.csv", params_4_5);
+    metropolis_allinone(params_4_5, "harmonic_b.csv");
 
     // Fig. 6
-    // metropolis_parameters params_6 = params;
-    // params_6.N = 51;
-    // params_6.N_montecarlo = 20;
-    // params_6.mu_sq = 2.0;
-    // params_6.a = 0.5;
-    // params_6.Delta = 2 * sqrt(params_6.a);
-    // metropolis_algo(params_6, "harmonic_b.csv");
+    metropolis_parameters params_6 = params;
+    params_6.N = 51;
+    params_6.N_montecarlo = 20;
+    params_6.mu_sq = 2.0;
+    params_6.a = 0.5;
+    params_6.Delta = 2 * sqrt(params_6.a);
+    metropolis_allinone(params_6, "harmonic_b.csv");
 
     // TODO: use the f_sq potential from here on
     // potential_ptr = *potential_alt;
