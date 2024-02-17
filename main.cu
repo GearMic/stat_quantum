@@ -80,7 +80,7 @@ void setup_randomize(curandState_t* state, size_t len)
     size_t stride = blockDim.x;
 
     for (unsigned int i=id; i<len; i+=stride) {
-        curand_init(1234, id, 0, &state[i]);
+        curand_init(1234, i, 0, &state[i]);
     };
 }
 
@@ -118,6 +118,10 @@ void export_csv_double_2d(FILE* file, double* arr, size_t pitch, size_t width, s
     };
 }
 
+size_t cuda_block_amount(size_t kernels, size_t max_kernels)
+{
+    return (int)ceil( (double)(kernels) / max_kernels );
+}
 
 //// big functions
 __device__
@@ -149,37 +153,56 @@ double action_2p(double xm1, double x0, double x1, metropolis_parameters paramet
 }
 
 __global__ 
-void action(double* lattice, double* action, metropolis_parameters params) 
+void action_latticeconf(double* lattice, metropolis_parameters params, double* action) 
 {
     size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (idx >= params.N-1) {
+    if (idx >= params.N) {
         return;
     };
 
-    lattice += 1 + idx;
-    *action = action_2p(lattice[-1], lattice[0], lattice[1], params);
+    lattice += idx;
+    *action += action_point(lattice[0], lattice[1], params);
+}
+
+__global__ 
+void action_latticeconf_synchronous(double* lattice, metropolis_parameters params, double* action) 
+{
+    for (size_t i=0; i<params.N; i++) {
+        *action += action_point(lattice[0], lattice[1], params);
+        lattice += 1;
+    };
+}
+
+void export_metropolis_data(const char filename[], double* ensemble, size_t pitch, size_t width, size_t height)
+// write metropolis data. Takes in pointer to data on device memory
+{
+    double* ensemble_host;
+    CUDA_CALL(cudaMallocHost(&ensemble_host, height * width*sizeof(double)));
+    CUDA_CALL(cudaMemcpy2D(ensemble_host, width*sizeof(double), ensemble, pitch, width*sizeof(double), height, cudaMemcpyDeviceToHost));
+    if (filename) {
+        FILE* file = fopen(filename, "w");
+        export_csv_double_2d(file, ensemble_host, width*sizeof(double), width, height);
+        fclose(file);
+    }
+
+    CUDA_CALL(cudaFreeHost(ensemble_host));
 }
 
 __global__
-void metropolis_step(double* xj, size_t n_points, size_t start_offset, metropolis_parameters parameters, curandState_t* random_state) 
+void metropolis_step(double* xj, size_t n_points, size_t start_offset, metropolis_parameters params, curandState_t* random_state) 
 {
-    double Delta = parameters.Delta;
-
     size_t id = blockDim.x * blockIdx.x + threadIdx.x;
-    curandState_t localState = random_state[id];
-
-    // apply offset
-    size_t offset = id * parameters.metropolis_offset + start_offset;
+    size_t offset = id * params.metropolis_offset + start_offset;
     if (offset >= n_points) { // do nothing if the point would be out of range
-        // printf("Offset %i rejected \n", offset);
         return;
     } 
     xj = xj + offset;
 
-    // double xjp = curand_uniform_double(&localState) * (xupper-xlower) + xlower;
-    double xjp = curand_uniform_double(&localState) * (2*Delta) + *xj - Delta;
-    double S_delta = action_2p(xj[-1], xjp, xj[1], parameters) - action_2p(xj[-1], *xj, xj[1], parameters);
+    curandState_t localState = random_state[id];
+
+    double xjp = curand_uniform_double(&localState) * (2*params.Delta) + *xj - params.Delta;
+    double S_delta = action_2p(xj[-1], xjp, xj[1], params) - action_2p(xj[-1], *xj, xj[1], params);
 
     if (S_delta < 0) {
         *xj = xjp;
@@ -204,22 +227,7 @@ void metropolis_call(metropolis_parameters parameters, double* x, curandState* r
     };
 }
 
-void write_metropolis_data(const char filename[], double* ensemble, size_t pitch, size_t width, size_t height)
-// write metropolis data. Takes in pointer to data on device memory
-{
-    double* ensemble_host;
-    CUDA_CALL(cudaMallocHost(&ensemble_host, height * width*sizeof(double)));
-    CUDA_CALL(cudaMemcpy2D(ensemble_host, width*sizeof(double), ensemble, pitch, width*sizeof(double), height, cudaMemcpyDeviceToHost));
-    if (filename) {
-        FILE* file = fopen(filename, "w");
-        export_csv_double_2d(file, ensemble_host, width*sizeof(double), width, height);
-        fclose(file);
-    }
-
-    CUDA_CALL(cudaFreeHost(ensemble_host));
-}
-
-void metropolis_algo(double** ensemble_out, size_t* pitch, size_t* width, size_t* height, metropolis_parameters parameters)
+void metropolis_algo(metropolis_parameters parameters, double** ensemble_out, size_t* pitch, size_t* width, size_t* height)
 // executes the metropolis algorithm, writes data into ensemble, pitch in bytes into pitch, width in doubles into width, height into height
 {
     // parameters that are used directly
@@ -235,8 +243,8 @@ void metropolis_algo(double** ensemble_out, size_t* pitch, size_t* width, size_t
     size_t N_montecarlo = parameters.N_montecarlo;
 
     // determine kernel amounts
-    size_t metropolis_kernels = (int)ceil( (double)(N-1) / metropolis_offset ); // amount of kernels that are run in parallel
-    size_t metropolis_blocks = (int)ceil( (double)(metropolis_kernels) / max_threads_per_block );
+    size_t metropolis_kernels = (size_t)ceil( (double)(N-1) / metropolis_offset ); // amount of kernels that are run in parallel
+    size_t metropolis_blocks = (size_t)ceil( (double)(metropolis_kernels) / max_threads_per_block );
     if (metropolis_blocks > 1) {
         metropolis_kernels = max_threads_per_block;
     }
@@ -244,9 +252,11 @@ void metropolis_algo(double** ensemble_out, size_t* pitch, size_t* width, size_t
     // initialize data arrays
     size_t N_measurements = N_lattices * N_measure;
 
-    curandState_t* random_state;
+    curandState_t *random_state, *random_state_algo;
     CUDA_CALL(cudaMallocManaged(&random_state, (N-1) * sizeof(curandState_t)));
+    CUDA_CALL(cudaMallocManaged(&random_state_algo, (N-1) * sizeof(curandState_t)));
     setup_randomize<<<1, max_threads_per_block>>>(random_state, N-1); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
+    setup_randomize<<<1, max_threads_per_block>>>(random_state_algo, metropolis_kernels); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
     cudaDeviceSynchronize();
     
     double *x, *ensemble;
@@ -265,13 +275,13 @@ void metropolis_algo(double** ensemble_out, size_t* pitch, size_t* width, size_t
 
         // wait until equilibrium
         for (size_t j=0; j<N_until_equilibrium; j++) {
-            metropolis_call(parameters, x, random_state, metropolis_blocks, metropolis_kernels);
+            metropolis_call(parameters, x, random_state_algo, metropolis_blocks, metropolis_kernels);
         }
 
         // start measuring
         for (size_t j=0; j<N_measure; j++) {
             for (size_t k=0; k<N_montecarlo; k++) {
-                metropolis_call(parameters, x, random_state, metropolis_blocks, metropolis_kernels);
+                metropolis_call(parameters, x, random_state_algo, metropolis_blocks, metropolis_kernels);
             };
             // measure the new lattice configuration
             CUDA_CALL(cudaMemcpy((double*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyDeviceToDevice));
@@ -285,6 +295,7 @@ void metropolis_algo(double** ensemble_out, size_t* pitch, size_t* width, size_t
     *width = N+1;
     *height = N_measurements;
     CUDA_CALL(cudaFree(random_state));
+    CUDA_CALL(cudaFree(random_state_algo));
     CUDA_CALL(cudaFree(x));
 }
 
@@ -314,18 +325,51 @@ int main()
     .f_sq = -1.0 // placeholder value
     };
 
+    double* ensemble;
+    size_t pitch, width, height;
+    metropolis_parameters params_4_5 = parameters;
 
-    // plot action
+
+    // step 1: plot action
     metropolis_parameters params_0 = parameters;
-    // TODOTODOTODOTODO
+    params_0.m0 = .5;
+    params_0.a = .5;
+    params_0.N = 100;
+    params_0.N_lattices = 1;
+    params_0.N_until_equilibrium = 0;
+    params_0.N_measure = 400;
+
+    metropolis_algo(params_0, &ensemble, &pitch, &width, &height);
+
+    double* actions; 
+    CUDA_CALL((cudaMallocHost(&actions, height)));
+
+    // for (size_t i=0; i<height; i++) {
+    //     printfl(actions[i]);
+    // }
+
+    size_t n_blocks = cuda_block_amount(params_0.N-1, max_threads_per_block);
+
+    for (size_t i=0; i<height; i++) {
+        // action_latticeconf<<<n_blocks, max_threads_per_block>>>((double*)((char*)ensemble + i*pitch), params_0, actions+i);
+        action_latticeconf_synchronous<<<1, 1>>>((double*)((char*)ensemble + i*pitch), params_0, actions+i);
+    };
+    CUDA_CALL(cudaDeviceSynchronize());
+
+    FILE* file_action = fopen("action.csv", "w");
+    export_csv_double_1d(file_action, actions, height);
+    fclose(file_action);
+
+    CUDA_CALL(cudaFree(ensemble));
+    CUDA_CALL(cudaFreeHost(actions));
 
 
+    // step 2: Fig 4, 5
+    metropolis_algo(params_4_5, &ensemble, &pitch, &width, &height);
+    export_metropolis_data("harmonic_a.csv", ensemble, pitch, width, height);
+    CUDA_CALL(cudaFree(ensemble));
 
 /*
-    // Fig 4, 5
-    metropolis_parameters parameters_4_5 = parameters;
-    metropolis_algo(parameters_4_5, "harmonic_a.csv");
-
     //// Fig. 6
     metropolis_parameters parameters_6 = parameters;
     parameters_6.N = 51;

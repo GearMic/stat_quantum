@@ -73,11 +73,18 @@ ms = 4
 # ax = plt.gca()
 
 
+## plot action
+data = np.genfromtxt('action.csv', delimiter=',')
+plt.plot(range(len(data)), data) 
+plt.savefig('plot/0_plot.png', dpi=dpi)
+
+
 ## Fig.4 (more or less)
 measurements = np.genfromtxt('harmonic_a.csv', delimiter=',')#, skip_header=5, usecols=data_usecols, converters=data_converters)
 rows, cols = measurements.shape
 t = range(cols)
 
+plt.clf()
 for row in range(3):
     # plt.plot(t, measurements[row])
     plt.plot(t, measurements[-row-1])
@@ -92,7 +99,7 @@ plt.savefig('plot/4_plot.png', dpi=dpi)
 # bin_size = bins_x[1] - bins_x[0]
 # bins_x += bin_size / 2 # for plotting bin value in the middle of each bin
 
-data = measurements
+data = measurements[:, 1:-1]
 
 xlower, xupper = -3., 3.
 bins_x, bins_y = bin_normalized(data, 40, xlower, xupper)
