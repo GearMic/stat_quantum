@@ -57,19 +57,8 @@ struct metropolis_parameters
     double f_sq;
 };
 
-// __device__ double a;
-// __device__ double f_sq;
-// __device__ double m0 = 1.0;
-// __device__ double mu_sq = 1.0;
-// __device__ double lambda = 0.0;
-// __device__ double epsilon = 1.;
-// __device__ double Delta = 2.;
-
-// double xlower = -2.;
-// double xupper = 2.;
-// size_t N = 2000;
-// size_t max_kernels_per_block = 896;
-const size_t max_threads_per_block = 512;
+// const size_t max_threads_per_block = 512;
+const size_t max_threads_per_block = 1024;
 
 
 //// helper functions
@@ -89,13 +78,14 @@ void randomize_double_array(double* array, size_t len, double lower, double uppe
 {
     size_t id = blockDim.x * blockIdx.x + threadIdx.x; // TODO: is this correct?
     size_t stride = blockDim.x;
-    curandState_t localState = state[id];
+    curandState_t localState;
 
     for (unsigned int i=id; i<len; i+=stride) {
+        localState = state[i];
         array[i] = lower + (upper - lower) * curand_uniform_double(&localState);
+        state[i] = localState;
     };
 
-    state[id] = localState;
 }
 
 void printfl(double x)
@@ -171,14 +161,14 @@ void export_metropolis_data(const char filename[], double* ensemble, size_t pitc
 __global__
 void metropolis_step(double* xj, size_t n_points, size_t start_offset, metropolis_parameters params, curandState_t* random_state) 
 {
-    size_t id = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t offset = id * params.metropolis_offset + start_offset;
+    size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t offset = idx * params.metropolis_offset + start_offset;
     if (offset >= n_points) { // do nothing if the point would be out of range
         return;
     } 
     xj = xj + offset;
 
-    curandState_t localState = random_state[id];
+    curandState_t localState = random_state[idx];
 
     double xjp = curand_uniform_double(&localState) * (2*params.Delta) - params.Delta + *xj;
     double S_delta = action_2p(xj[-1], xjp, xj[1], params) - action_2p(xj[-1], *xj, xj[1], params);
@@ -201,7 +191,7 @@ void metropolis_step(double* xj, size_t n_points, size_t start_offset, metropoli
     //// debugging
     // printf("xjnew: %f %f\n", xj_old, *xj);
 
-    random_state[id] = localState;
+    random_state[idx] = localState;
 }
 
 void metropolis_call(metropolis_parameters params, double* x, curandState* random_state, size_t metropolis_blocks, size_t metropolis_kernels) {
@@ -223,10 +213,13 @@ void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t
 
     // determine kernel amounts
     size_t metropolis_kernels = (size_t)ceil( (double)(N-1) / metropolis_offset ); // amount of kernels that are run in parallel
-    size_t metropolis_blocks = (size_t)ceil( (double)(metropolis_kernels) / max_threads_per_block );
+    size_t metropolis_blocks = cuda_block_amount(metropolis_kernels, max_threads_per_block);
+    size_t threads_per_block = metropolis_kernels;
     if (metropolis_blocks > 1) {
-        metropolis_kernels = max_threads_per_block;
+        threads_per_block = max_threads_per_block;
     }
+    
+    printf("total: %i\tblocks: %i\t perblock: %i\n", metropolis_kernels, metropolis_blocks, threads_per_block);
 
     // initialize data arrays
     size_t N_measurements = params.N_measure;
@@ -253,13 +246,13 @@ void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t
 
     // wait until equilibrium
     for (size_t j=0; j<params.N_until_equilibrium; j++) {
-        metropolis_call(params, x, random_state_algo, metropolis_blocks, metropolis_kernels);
+        metropolis_call(params, x, random_state_algo, metropolis_blocks, threads_per_block);
     }
 
     // start measuring
     for (size_t j=0; j<params.N_measure; j++) {
         for (size_t k=0; k<params.N_montecarlo; k++) {
-            metropolis_call(params, x, random_state_algo, metropolis_blocks, metropolis_kernels);
+            metropolis_call(params, x, random_state_algo, metropolis_blocks, threads_per_block);
         };
         // measure the new lattice configuration
         CUDA_CALL(cudaMemcpy((double*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyDeviceToDevice));
@@ -316,15 +309,15 @@ int main()
     metropolis_parameters params_0 = params;
     params_0.m0 = .5;
     params_0.a = .5;
-    params_0.N = 10000; // broken for N=1000??
+    params_0.N = 10000; // broken for N>1026?
     params_0.N_lattices = 1;
     params_0.N_until_equilibrium = 50; // called Nt in the paper
     params_0.N_measure = 1000;
     params_0.N_montecarlo = 1; //only on 1 for testing purposes
     params_0.N_markov = 5; // called nBar in the paper
     params_0.Delta = 2.0 * sqrt(params_0.a);
-    params_0.xlower = -10.;
-    params_0.xupper = 10.;
+    params_0.xlower = -100.;
+    params_0.xupper = 100.;
 
     // params_0.N_measure = 0; // disable this part
 

@@ -75,7 +75,7 @@ ms = 4
 
 ## plot action
 data = np.genfromtxt('action.csv', delimiter=',')
-# data = data[250:]
+# data = data[20:40]
 plt.plot(range(len(data)), data) 
 plt.savefig('plot/0_plot.png', dpi=dpi)
 
