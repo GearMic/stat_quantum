@@ -349,6 +349,7 @@ int main()
 
     // Fig 4, 5
     metropolis_parameters params_4_5 = params;
+    params_4_5.N=10000;
     metropolis_allinone(params_4_5, "harmonic_a.csv");
 
     // Fig. 6

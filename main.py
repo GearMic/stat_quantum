@@ -18,6 +18,31 @@ import os.path
 def list_filename(name, suffix='.png'): # saving successively got annoying
     return name + suffix
 
+
+
+def correlation_over_m(ensemble: np.ndarray, m: float):
+    ensemble_shift = np.roll(ensemble, -m, 1)
+    ensemble_correlations = ensemble * ensemble_shift
+
+    return np.mean(ensemble_correlations)
+
+def correlation_function(ensemble: np.ndarray)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""
 def correlation_function(ensemble: np.ndarray, m: int):
     rows, cols = ensemble.shape
 
@@ -54,6 +79,7 @@ def correlation_function_periodic(ensemble: np.ndarray, m: int, a: float):
         correlation_sum += data[i%M] * data[(i+m)%M]
 
     return 1 / M * correlation_sum
+"""
     
     
 def bin_normalized(data, n_bins, xlower, xupper):
@@ -103,14 +129,14 @@ plt.savefig('plot/4_plot.png', dpi=dpi)
 data = measurements[:, :-1]
 
 xlower, xupper = -3., 3.
-bins_x, bins_y = bin_normalized(data, 40, xlower, xupper)
+bins_x, bins_y = bin_normalized(data, 31, xlower, xupper)
 
 # func_x = np.linspace(bins_x[0], bins_x[-1] + bin_size, 100)
 func_x = np.linspace(xlower, xupper, 200)
 func_y = 0.59 * np.exp(-1.1 * func_x**2)
 
 plt.clf()
-plt.plot(bins_x, bins_y, 'x', ms=4)#, color='tab:red')
+plt.plot(bins_x, bins_y, '.', ms=1)#, color='tab:red')
 plt.plot(func_x, func_y, lw=.75, color='tab:gray')
 # plt.savefig(list_filename('plot/5/bins'), dpi=dpi)
 plt.savefig('plot/5_bins.png', dpi=dpi)
@@ -143,11 +169,11 @@ print(x_sq_mean)
 # correlation_y = np.array(tuple(correlation_function_periodic(data_b, m, epsilon) for m in range(cols)))
 
 fig, ax = plt.subplots()
-ax.set_yscale('log')
+# ax.set_yscale('log')
 ax.yaxis.set_major_formatter(plt.ScalarFormatter())
-plt.xlim(0.0, 3.0)
-# plt.clf()
-ax.plot(correlation_x, correlation_y, 'x', ms=4)
+# plt.xlim(0.0, 3.0)
+# ax.plot(correlation_x, correlation_y, 'x', ms=4)
+ax.plot(correlation_x, correlation_y)
 # plt.savefig(list_filename('plot/6/correlation'), dpi=dpi)
 plt.savefig('plot/6_correlation.png', dpi=dpi)
 ## TODO: find low-lying energy levels
