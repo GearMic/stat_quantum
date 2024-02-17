@@ -237,8 +237,6 @@ void metropolis_algo(metropolis_parameters parameters, double** ensemble_out, si
     double x0 = parameters.x0;
     double xN = parameters.xN;
     size_t N = parameters.N;
-    size_t N_until_equilibrium = parameters.N_until_equilibrium;
-    size_t N_lattices = parameters.N_lattices;
     size_t N_measure = parameters.N_measure;
     size_t N_montecarlo = parameters.N_montecarlo;
 
@@ -250,7 +248,7 @@ void metropolis_algo(metropolis_parameters parameters, double** ensemble_out, si
     }
 
     // initialize data arrays
-    size_t N_measurements = N_lattices * N_measure;
+    size_t N_measurements = N_measure;
 
     curandState_t *random_state, *random_state_algo;
     CUDA_CALL(cudaMallocManaged(&random_state, (N-1) * sizeof(curandState_t)));
@@ -269,24 +267,22 @@ void metropolis_algo(metropolis_parameters parameters, double** ensemble_out, si
         
     // metropolis algorithm
     unsigned int measure_index = 0;
-    for (int l=0; l<N_lattices; l++) {
-        randomize_double_array<<<1, max_threads_per_block>>>(x+1, N-1, xlower, xupper, random_state);
-        CUDA_CALL(cudaDeviceSynchronize());
+    randomize_double_array<<<1, max_threads_per_block>>>(x+1, N-1, xlower, xupper, random_state);
+    CUDA_CALL(cudaDeviceSynchronize());
 
-        // wait until equilibrium
-        for (size_t j=0; j<N_until_equilibrium; j++) {
+    // wait until equilibrium
+    for (size_t j=0; j<parameters.N_until_equilibrium; j++) {
+        metropolis_call(parameters, x, random_state_algo, metropolis_blocks, metropolis_kernels);
+    }
+
+    // start measuring
+    for (size_t j=0; j<N_measure; j++) {
+        for (size_t k=0; k<N_montecarlo; k++) {
             metropolis_call(parameters, x, random_state_algo, metropolis_blocks, metropolis_kernels);
-        }
-
-        // start measuring
-        for (size_t j=0; j<N_measure; j++) {
-            for (size_t k=0; k<N_montecarlo; k++) {
-                metropolis_call(parameters, x, random_state_algo, metropolis_blocks, metropolis_kernels);
-            };
-            // measure the new lattice configuration
-            CUDA_CALL(cudaMemcpy((double*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyDeviceToDevice));
-            measure_index++;
         };
+        // measure the new lattice configuration
+        CUDA_CALL(cudaMemcpy((double*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyDeviceToDevice));
+        measure_index++;
     };
 
     // return and cleanup
@@ -324,6 +320,7 @@ int main()
     .m0 = 1.0, .lambda = 0.0, .mu_sq = 1.0,
     .f_sq = -1.0 // placeholder value
     };
+    // TODO: remove N_lattices
 
     double* ensemble;
     size_t pitch, width, height;
