@@ -160,7 +160,7 @@ void export_metropolis_data(const char filename[], double* ensemble, size_t pitc
 
 __global__
 void metropolis_step(double* xj, size_t n_points, size_t start_offset, metropolis_parameters params, curandState_t* random_state) 
-{
+{ // TODO: try only making changes at the very end
     size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
     size_t offset = start_offset + idx * params.metropolis_offset;
     if (offset >= n_points) { // do nothing if the point would be out of range
