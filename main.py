@@ -75,6 +75,7 @@ ms = 4
 
 ## plot action
 data = np.genfromtxt('action.csv', delimiter=',')
+# data = data[250:]
 plt.plot(range(len(data)), data) 
 plt.savefig('plot/0_plot.png', dpi=dpi)
 
@@ -99,7 +100,7 @@ plt.savefig('plot/4_plot.png', dpi=dpi)
 # bin_size = bins_x[1] - bins_x[0]
 # bins_x += bin_size / 2 # for plotting bin value in the middle of each bin
 
-data = measurements[:, 1:-1]
+data = measurements[:, :-1]
 
 xlower, xupper = -3., 3.
 bins_x, bins_y = bin_normalized(data, 40, xlower, xupper)

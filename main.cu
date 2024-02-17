@@ -127,7 +127,7 @@ size_t cuda_block_amount(size_t kernels, size_t max_kernels)
 __device__
 double potential(double x, metropolis_parameters params)
 {
-    return 1./2. * pow(params.mu_sq, 2) * pow(x, 2) + params.lambda * pow(x, 4); // anharmonic oscillator potential
+    return 1./2. * params.mu_sq * pow(x, 2) + params.lambda * pow(x, 4); // anharmonic oscillator potential
 }
 
 // __device__
@@ -136,12 +136,12 @@ double potential(double x, metropolis_parameters params)
 //     return lambda * pow( pow(x, 2.f) - f_sq, 2.f );
 // }
 
-__device__ double (*potential_ptr)(double, metropolis_parameters) = *potential;
+// __device__ double (*potential_ptr)(double, metropolis_parameters) = *potential;
 
 __device__
 double action_point(double x0, double x1, metropolis_parameters params)
 {
-    return params.a * (1./2. * params.m0 * pow((x1-x0), 2) / pow(params.a, 2) + (*potential_ptr)(x0, params));
+    return params.a * (1./2. * params.m0 * pow((x1-x0), 2) / pow(params.a, 2) + potential(x0, params));
 }
 
 __device__
@@ -201,44 +201,49 @@ void metropolis_step(double* xj, size_t n_points, size_t start_offset, metropoli
 
     curandState_t localState = random_state[id];
 
-    double xjp = curand_uniform_double(&localState) * (2*params.Delta) + *xj - params.Delta;
+    double xjp = curand_uniform_double(&localState) * (2*params.Delta) - params.Delta + *xj;
     double S_delta = action_2p(xj[-1], xjp, xj[1], params) - action_2p(xj[-1], *xj, xj[1], params);
 
-    if (S_delta < 0) {
+    //// debugging
+    // printf("xj: %f %f\n", *xj, xjp);
+    // double xj_old = *xj;
+
+    if (S_delta <= 0) {
         *xj = xjp;
     }
     else {
-        if (exp(-S_delta) > curand_uniform_double(&localState)) {
+        double r = curand_uniform_double(&localState);
+        // printf("%f\n", r);
+        if (exp(-S_delta) > r) {
             *xj = xjp;
         };
     };
 
+    //// debugging
+    // printf("xjnew: %f %f\n", xj_old, *xj);
+
     random_state[id] = localState;
 }
 
-void metropolis_call(metropolis_parameters parameters, double* x, curandState* random_state, size_t metropolis_blocks, size_t metropolis_kernels) {
-    for (size_t start_offset=0; start_offset<parameters.metropolis_offset; start_offset++) {
-        for (size_t o=0; o<parameters.N_markov; o++) {
+void metropolis_call(metropolis_parameters params, double* x, curandState* random_state, size_t metropolis_blocks, size_t metropolis_kernels) {
+    for (size_t start_offset=0; start_offset<params.metropolis_offset; start_offset++) {
+        for (size_t o=0; o<params.N_markov; o++) {
             metropolis_step
                 <<<metropolis_blocks, metropolis_kernels>>>
-                (x+1, parameters.N-1, start_offset, parameters, random_state);
+                (x+1, params.N-1, start_offset, params, random_state);
             CUDA_CALL(cudaDeviceSynchronize());
         };
     };
 }
 
-void metropolis_algo(metropolis_parameters parameters, double** ensemble_out, size_t* pitch, size_t* width, size_t* height)
+void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t* pitch, size_t* width, size_t* height)
 // executes the metropolis algorithm, writes data into ensemble, pitch in bytes into pitch, width in doubles into width, height into height
 {
     // parameters that are used directly
-    size_t metropolis_offset = parameters.metropolis_offset; // offset between kernels. The smaller the number, the more kernels run in parallel. Minimum 2
-    double xlower = parameters.xlower;
-    double xupper = parameters.xupper;
-    double x0 = parameters.x0;
-    double xN = parameters.xN;
-    size_t N = parameters.N;
-    size_t N_measure = parameters.N_measure;
-    size_t N_montecarlo = parameters.N_montecarlo;
+    size_t metropolis_offset = params.metropolis_offset; // offset between kernels. The smaller the number, the more kernels run in parallel. Minimum 2
+    size_t N = params.N;
+    size_t N_measure = params.N_measure;
+    size_t N_montecarlo = params.N_montecarlo;
 
     // determine kernel amounts
     size_t metropolis_kernels = (size_t)ceil( (double)(N-1) / metropolis_offset ); // amount of kernels that are run in parallel
@@ -262,23 +267,23 @@ void metropolis_algo(metropolis_parameters parameters, double** ensemble_out, si
     size_t ensemble_pitch;
     CUDA_CALL(cudaMallocPitch(&ensemble, &ensemble_pitch, (N+1) * sizeof(double), N_measurements));
 
-    x[0] = x0;
-    x[N] = xN;
+    x[0] = params.x0;
+    x[N] = params.xN;
         
     // metropolis algorithm
     unsigned int measure_index = 0;
-    randomize_double_array<<<1, max_threads_per_block>>>(x+1, N-1, xlower, xupper, random_state);
-    CUDA_CALL(cudaDeviceSynchronize());
+    randomize_double_array<<<1, max_threads_per_block>>>(x+1, N-1, params.xlower, params.xupper, random_state);
+    // CUDA_CALL(cudaDeviceSynchronize());
 
     // wait until equilibrium
-    for (size_t j=0; j<parameters.N_until_equilibrium; j++) {
-        metropolis_call(parameters, x, random_state_algo, metropolis_blocks, metropolis_kernels);
+    for (size_t j=0; j<params.N_until_equilibrium; j++) {
+        metropolis_call(params, x, random_state_algo, metropolis_blocks, metropolis_kernels);
     }
 
     // start measuring
     for (size_t j=0; j<N_measure; j++) {
         for (size_t k=0; k<N_montecarlo; k++) {
-            metropolis_call(parameters, x, random_state_algo, metropolis_blocks, metropolis_kernels);
+            metropolis_call(params, x, random_state_algo, metropolis_blocks, metropolis_kernels);
         };
         // measure the new lattice configuration
         CUDA_CALL(cudaMemcpy((double*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyDeviceToDevice));
@@ -295,6 +300,14 @@ void metropolis_algo(metropolis_parameters parameters, double** ensemble_out, si
     CUDA_CALL(cudaFree(x));
 }
 
+void metropolis_allinone(const char* filename, metropolis_parameters params)
+{
+    double* ensemble;
+    size_t pitch, width, height;
+    metropolis_algo(params, &ensemble, &pitch, &width, &height);
+    export_metropolis_data(filename, ensemble, pitch, width, height);
+    CUDA_CALL(cudaFree(ensemble));
+}
 
 
 int main()
@@ -312,38 +325,37 @@ int main()
     }
 
 
-    metropolis_parameters parameters = {
+    metropolis_parameters params = {
     .metropolis_offset = 2,
     .xlower = -2., .xupper = 2., .x0 = 0.0, .xN = 0.0,
     .a = 1., .N = 1000,
-    .N_until_equilibrium = 100, .N_lattices = 3, .N_measure = 60, .N_montecarlo = 5, .N_markov = 1, .Delta = 2.0,
+    .N_until_equilibrium = 100, .N_lattices = 1, .N_measure = 60, .N_montecarlo = 5, .N_markov = 5, .Delta = 2.0,
     .m0 = 1.0, .lambda = 0.0, .mu_sq = 1.0,
     .f_sq = -1.0 // placeholder value
     };
     // TODO: remove N_lattices
 
-    double* ensemble;
-    size_t pitch, width, height;
-    metropolis_parameters params_4_5 = parameters;
-
 
     // step 1: plot action
-    metropolis_parameters params_0 = parameters;
+    metropolis_parameters params_0 = params;
     params_0.m0 = .5;
     params_0.a = .5;
-    params_0.N = 100;
+    params_0.N = 1000; // broken for N=1000??
     params_0.N_lattices = 1;
-    params_0.N_until_equilibrium = 0;
+    params_0.N_until_equilibrium = 50; // called Nt in the paper
     params_0.N_measure = 400;
+    params_0.N_montecarlo = 1; //only on 1 for testing purposes
+    params_0.N_markov = 5; // called nBar in the paper
+    params_0.Delta = 2.0 * sqrt(params_0.a);
+    params_0.xlower = -10.;
+    params_0.xupper = 10.;
 
+    double* ensemble;
+    size_t pitch, width, height;
     metropolis_algo(params_0, &ensemble, &pitch, &width, &height);
 
     double* actions; 
     CUDA_CALL((cudaMallocHost(&actions, height)));
-
-    // for (size_t i=0; i<height; i++) {
-    //     printfl(actions[i]);
-    // }
 
     size_t n_blocks = cuda_block_amount(params_0.N-1, max_threads_per_block);
 
@@ -361,21 +373,18 @@ int main()
     CUDA_CALL(cudaFreeHost(actions));
 
 
-    // step 2: Fig 4, 5
-    metropolis_algo(params_4_5, &ensemble, &pitch, &width, &height);
-    export_metropolis_data("harmonic_a.csv", ensemble, pitch, width, height);
-    CUDA_CALL(cudaFree(ensemble));
+    // Fig 4, 5
+    metropolis_parameters params_4_5 = params;
+    metropolis_allinone("harmonic_a.csv", params_4_5);
 
-/*
-    //// Fig. 6
-    metropolis_parameters parameters_6 = parameters;
-    parameters_6.N = 51;
-    parameters_6.N_montecarlo = 20;
-    parameters_6.mu_sq = 2.0;
-    parameters_6.a = 0.5;
-    parameters_6.Delta = 2 * sqrt(parameters.a);
-    metropolis_algo(parameters_6, "harmonic_b.csv");
-*/
+    // Fig. 6
+    // metropolis_parameters params_6 = params;
+    // params_6.N = 51;
+    // params_6.N_montecarlo = 20;
+    // params_6.mu_sq = 2.0;
+    // params_6.a = 0.5;
+    // params_6.Delta = 2 * sqrt(params_6.a);
+    // metropolis_algo(params_6, "harmonic_b.csv");
 
     // TODO: use the f_sq potential from here on
     // potential_ptr = *potential_alt;
