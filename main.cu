@@ -63,13 +63,13 @@ const size_t max_threads_per_block = 1024;
 
 //// helper functions
 __global__
-void setup_randomize(curandState_t* state, size_t len)
+void setup_randomize(curandState_t* state, size_t len, unsigned long long seed)
 {
     size_t id = blockDim.x * blockIdx.x + threadIdx.x; // TODO: is this correct?
     size_t stride = blockDim.x;
 
     for (unsigned int i=id; i<len; i+=stride) {
-        curand_init(1234, i, 0, &state[i]);
+        curand_init(seed, i, 0, &state[i]);
     };
 }
 
@@ -162,13 +162,14 @@ __global__
 void metropolis_step(double* xj, size_t n_points, size_t start_offset, metropolis_parameters params, curandState_t* random_state) 
 {
     size_t idx = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t offset = idx * params.metropolis_offset + start_offset;
+    size_t offset = start_offset + idx * params.metropolis_offset;
     if (offset >= n_points) { // do nothing if the point would be out of range
         return;
     } 
     xj = xj + offset;
 
-    curandState_t localState = random_state[idx];
+    curandState_t localState = random_state[idx]; // TODO: have different states for every lattice point?
+    // curandState_t localState = random_state[offset];
 
     double xjp = curand_uniform_double(&localState) * (2*params.Delta) - params.Delta + *xj;
     double S_delta = action_2p(xj[-1], xjp, xj[1], params) - action_2p(xj[-1], *xj, xj[1], params);
@@ -192,6 +193,7 @@ void metropolis_step(double* xj, size_t n_points, size_t start_offset, metropoli
     // printf("xjnew: %f %f\n", xj_old, *xj);
 
     random_state[idx] = localState;
+    // random_state[offset] = localState;
 }
 
 void metropolis_call(metropolis_parameters params, double* x, curandState* random_state, size_t metropolis_blocks, size_t metropolis_kernels) {
@@ -227,8 +229,9 @@ void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t
     curandState_t *random_state, *random_state_algo;
     CUDA_CALL(cudaMallocManaged(&random_state, (N-1) * sizeof(curandState_t)));
     CUDA_CALL(cudaMallocManaged(&random_state_algo, (N-1) * sizeof(curandState_t)));
-    setup_randomize<<<1, max_threads_per_block>>>(random_state, N-1); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
-    setup_randomize<<<1, max_threads_per_block>>>(random_state_algo, metropolis_kernels); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
+    setup_randomize<<<1, max_threads_per_block>>>(random_state, N-1, 1235); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
+    setup_randomize<<<1, max_threads_per_block>>>(random_state_algo, metropolis_kernels, 1234); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
+    // setup_randomize<<<1, max_threads_per_block>>>(random_state_algo, N-1, 1234); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
     cudaDeviceSynchronize();
     
     double *x, *ensemble;
@@ -309,10 +312,10 @@ int main()
     metropolis_parameters params_0 = params;
     params_0.m0 = .5;
     params_0.a = .5;
-    params_0.N = 10000; // broken for N>1026?
+    params_0.N = 1000; // broken for N>1026?
     params_0.N_lattices = 1;
     params_0.N_until_equilibrium = 50; // called Nt in the paper
-    params_0.N_measure = 1000;
+    params_0.N_measure = 200;
     params_0.N_montecarlo = 1; //only on 1 for testing purposes
     params_0.N_markov = 5; // called nBar in the paper
     params_0.Delta = 2.0 * sqrt(params_0.a);
