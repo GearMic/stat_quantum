@@ -168,8 +168,8 @@ void metropolis_step(double* xj, size_t n_points, size_t start_offset, metropoli
     } 
     xj = xj + offset;
 
-    curandState_t localState = random_state[idx]; // TODO: have different states for every lattice point?
-    // curandState_t localState = random_state[offset];
+    // curandState_t localState = random_state[idx]; // TODO: have different states for every lattice point?
+    curandState_t localState = random_state[offset];
 
     double xjp = curand_uniform_double(&localState) * (2*params.Delta) - params.Delta + *xj;
     double S_delta = action_2p(xj[-1], xjp, xj[1], params) - action_2p(xj[-1], *xj, xj[1], params);
@@ -192,8 +192,8 @@ void metropolis_step(double* xj, size_t n_points, size_t start_offset, metropoli
     //// debugging
     // printf("xjnew: %f %f\n", xj_old, *xj);
 
-    random_state[idx] = localState;
-    // random_state[offset] = localState;
+    // random_state[idx] = localState;
+    random_state[offset] = localState;
 }
 
 void metropolis_call(metropolis_parameters params, double* x, curandState* random_state, size_t metropolis_blocks, size_t metropolis_kernels) {
@@ -230,8 +230,8 @@ void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t
     CUDA_CALL(cudaMallocManaged(&random_state, (N-1) * sizeof(curandState_t)));
     CUDA_CALL(cudaMallocManaged(&random_state_algo, (N-1) * sizeof(curandState_t)));
     setup_randomize<<<1, max_threads_per_block>>>(random_state, N-1, 1235); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
-    setup_randomize<<<1, max_threads_per_block>>>(random_state_algo, metropolis_kernels, 1234); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
-    // setup_randomize<<<1, max_threads_per_block>>>(random_state_algo, N-1, 1234); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
+    // setup_randomize<<<1, max_threads_per_block>>>(random_state_algo, metropolis_kernels, 1234); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
+    setup_randomize<<<1, max_threads_per_block>>>(random_state_algo, N-1, 1234); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
     cudaDeviceSynchronize();
     
     double *x, *ensemble;
