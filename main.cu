@@ -249,7 +249,7 @@ void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t
     // metropolis algorithm
     unsigned int measure_index = 0;
     randomize_double_array<<<1, max_threads_per_block>>>(x+1, N-1, params.xlower, params.xupper, random_state);
-    // CUDA_CALL(cudaDeviceSynchronize());
+    CUDA_CALL(cudaDeviceSynchronize());
 
     // wait until equilibrium
     for (size_t j=0; j<params.N_until_equilibrium; j++) {
@@ -316,15 +316,17 @@ int main()
     metropolis_parameters params_0 = params;
     params_0.m0 = .5;
     params_0.a = .5;
-    params_0.N = 1000; // broken for N=1000??
+    params_0.N = 10000; // broken for N=1000??
     params_0.N_lattices = 1;
     params_0.N_until_equilibrium = 50; // called Nt in the paper
-    params_0.N_measure = 400;
+    params_0.N_measure = 1000;
     params_0.N_montecarlo = 1; //only on 1 for testing purposes
     params_0.N_markov = 5; // called nBar in the paper
     params_0.Delta = 2.0 * sqrt(params_0.a);
     params_0.xlower = -10.;
     params_0.xupper = 10.;
+
+    // params_0.N_measure = 0; // disable this part
 
     double* ensemble;
     size_t pitch, width, height;
