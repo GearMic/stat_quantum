@@ -226,12 +226,9 @@ void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t
     // initialize data arrays
     size_t N_measurements = params.N_measure;
 
-    curandState_t *random_state, *random_state_algo;
+    curandState_t *random_state;
     CUDA_CALL(cudaMallocManaged(&random_state, (N-1) * sizeof(curandState_t)));
-    CUDA_CALL(cudaMallocManaged(&random_state_algo, (N-1) * sizeof(curandState_t)));
-    setup_randomize<<<1, max_threads_per_block>>>(random_state, N-1, 1235); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
-    // setup_randomize<<<1, max_threads_per_block>>>(random_state_algo, metropolis_kernels, 1234); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
-    setup_randomize<<<1, max_threads_per_block>>>(random_state_algo, N-1, 1234); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
+    setup_randomize<<<1, max_threads_per_block>>>(random_state, N-1, 9999); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
     cudaDeviceSynchronize();
     
     double *x, *ensemble;
@@ -249,13 +246,13 @@ void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t
 
     // wait until equilibrium
     for (size_t j=0; j<params.N_until_equilibrium; j++) {
-        metropolis_call(params, x, random_state_algo, metropolis_blocks, threads_per_block);
+        metropolis_call(params, x, random_state, metropolis_blocks, threads_per_block);
     }
 
     // start measuring
     for (size_t j=0; j<params.N_measure; j++) {
         for (size_t k=0; k<params.N_montecarlo; k++) {
-            metropolis_call(params, x, random_state_algo, metropolis_blocks, threads_per_block);
+            metropolis_call(params, x, random_state, metropolis_blocks, threads_per_block);
         };
         // measure the new lattice configuration
         CUDA_CALL(cudaMemcpy((double*)((char*)ensemble + ensemble_pitch*measure_index), x, (N+1)*sizeof(double), cudaMemcpyDeviceToDevice));
@@ -268,7 +265,6 @@ void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t
     *width = N+1;
     *height = N_measurements;
     CUDA_CALL(cudaFree(random_state));
-    CUDA_CALL(cudaFree(random_state_algo));
     CUDA_CALL(cudaFree(x));
 }
 
