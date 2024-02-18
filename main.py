@@ -26,18 +26,14 @@ def correlation_over_m(ensemble: np.ndarray, m: float):
 
     return np.mean(ensemble_correlations)
 
-def correlation_function(ensemble: np.ndarray)
+def correlation_function(ensemble: np.ndarray, a: float):
+    N = int(np.ceil(ensemble.shape[1] / 2)) ## TODO: is this correct?
 
+    mrange = range(N)
+    x = np.array(mrange) * a
+    y = tuple((correlation_over_m(ensemble, m) for m in mrange)) 
 
-
-
-
-
-
-
-
-
-
+    return x, y
 
 
 
@@ -143,37 +139,28 @@ plt.savefig('plot/5_bins.png', dpi=dpi)
 
 
 ## Fig. 6
-epsilon = 0.5
-
+a = 0.5
 data = np.genfromtxt('harmonic_b.csv', delimiter=',')
-if len(data.shape) == 1:
-    data = np.expand_dims(data, 0)
-rows, cols = data.shape
 
-m_range = range(1, cols-4)
-x_range = range(len(m_range))
-correlation_x = np.array(tuple(m*epsilon for m in x_range))
-correlation_y = np.array(tuple(correlation_function(data, m) for m in m_range))
+# if len(data.shape) == 1:
+#     data = np.expand_dims(data, 0)
+# rows, cols = data.shape
 
-x_sq_mean = np.mean(data[:, 3] ** 2)
-print(x_sq_mean)
+# m_range = range(1, cols-4)
+# x_range = range(len(m_range))
 
-# correlation_x = np.array(tuple(m*epsilon for m in range(cols)))
-# correlation_y = np.array(tuple(correlation_function(data_b, m) for m in range(cols)))
-
-# j = 1
-# correlation_y = np.array(tuple(correlation_function_alt(data_b, m, epsilon, 1) for m in range(cols-j)))
-# correlation_x = np.array(tuple(m*epsilon for m in range(cols-j)))
-
-# correlation_x = np.array(tuple(m*epsilon for m in range(cols)))
-# correlation_y = np.array(tuple(correlation_function_periodic(data_b, m, epsilon) for m in range(cols)))
+correlation_x, correlation_y = correlation_function(data, a)
+theory_x = np.array((0.0, 2.5))
+theory_y = np.array((0.45, 0.004))
 
 fig, ax = plt.subplots()
-# ax.set_yscale('log')
+ax.set_yscale('log')
 ax.yaxis.set_major_formatter(plt.ScalarFormatter())
-# plt.xlim(0.0, 3.0)
-# ax.plot(correlation_x, correlation_y, 'x', ms=4)
+plt.xlim(0.0, 3.0)
+ax.plot(theory_x, theory_y, color='tab:gray')
 ax.plot(correlation_x, correlation_y)
+# ax.plot(correlation_x, correlation_y, 'x', ms=4)
+
 # plt.savefig(list_filename('plot/6/correlation'), dpi=dpi)
 plt.savefig('plot/6_correlation.png', dpi=dpi)
 ## TODO: find low-lying energy levels
@@ -227,7 +214,7 @@ plt.plot(bins_x, bins_y, 'x', ms=4)#, color='tab:red')
 # plt.savefig(list_filename('plot/8/bins'), dpi=dpi)
 plt.savefig('plot/8_bins.png', dpi=dpi)
 
-
+"""
 #### Fig. 9
 epsilon = 0.25
 
@@ -251,6 +238,7 @@ for data, marker in zip(anharmonic_correlation, markers):
 
 # fig.savefig(list_filename('plot/9/correlation'), dpi=dpi)
 fig.savefig('plot/9_correlation.png', dpi=dpi)
+"""
 
 
 #### Fig. 10

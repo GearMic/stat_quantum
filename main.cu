@@ -349,15 +349,18 @@ int main()
 
     // Fig 4, 5
     metropolis_parameters params_4_5 = params;
-    params_4_5.N=10000;
+    params_4_5.N=1000;
     metropolis_allinone(params_4_5, "harmonic_a.csv");
 
     // Fig. 6
     metropolis_parameters params_6 = params;
+    params_6.m0 = 0.5;
     params_6.N_until_equilibrium = 100;
+    params_6.N_measure = 1000;
     params_6.N = 51;
     params_6.N_montecarlo = 20;
     params_6.mu_sq = 2.0;
+    params_6.lambda = 0.0;
     params_6.a = 0.5;
     params_6.Delta = 2 * sqrt(params_6.a);
     metropolis_allinone(params_6, "harmonic_b.csv");
