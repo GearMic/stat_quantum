@@ -232,7 +232,7 @@ void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t
 
     curandState_t *random_state;
     CUDA_CALL(cudaMallocManaged(&random_state, N*sizeof(curandState_t)));
-    setup_randomize<<<1, max_threads_per_block>>>(random_state, N, 9999); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
+    setup_randomize<<<1, max_threads_per_block>>>(random_state, N, 1234); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
     cudaDeviceSynchronize();
     
     double *x, *ensemble;
@@ -356,7 +356,7 @@ int main()
     metropolis_parameters params_6 = params;
     params_6.m0 = 0.5;
     params_6.N_until_equilibrium = 100;
-    params_6.N_measure = 1000;
+    params_6.N_measure = 10000;
     params_6.N = 51;
     params_6.N_montecarlo = 20;
     params_6.mu_sq = 2.0;

@@ -21,19 +21,20 @@ def list_filename(name, suffix='.png'): # saving successively got annoying
 
 
 def correlation_over_m(ensemble: np.ndarray, m: float):
-    ensemble_shift = np.roll(ensemble, -m, 1)
-    ensemble_correlations = ensemble * ensemble_shift
+    ensemble_correlations = ensemble * np.roll(ensemble, -m, 1)
 
-    return np.mean(ensemble_correlations)
+    return np.mean(ensemble_correlations), np.std(ensemble_correlations)
 
 def correlation_function(ensemble: np.ndarray, a: float):
     N = int(np.ceil(ensemble.shape[1] / 2)) ## TODO: is this correct?
-
     mrange = range(N)
     x = np.array(mrange) * a
-    y = tuple((correlation_over_m(ensemble, m) for m in mrange)) 
 
-    return x, y
+    correlation, std = np.zeros(N), np.zeros(N)
+    for m in mrange:
+        correlation[m], std[m] = correlation_over_m(ensemble, m)
+
+    return x, correlation, std
 
 
 
@@ -63,7 +64,7 @@ def correlation_function_alt(ensemble: np.ndarray, m: int, a: float, j: int = 0)
         correlation_sum += row[j] * row[j+m]
 
     return 1 / rows * correlation_sum
-
+"""
 
 def correlation_function_periodic(ensemble: np.ndarray, m: int, a: float):
     # ensemble = ensemble[:, :-1] # cut away duplicate periodic value
@@ -75,7 +76,6 @@ def correlation_function_periodic(ensemble: np.ndarray, m: int, a: float):
         correlation_sum += data[i%M] * data[(i+m)%M]
 
     return 1 / M * correlation_sum
-"""
     
     
 def bin_normalized(data, n_bins, xlower, xupper):
@@ -149,20 +149,25 @@ data = np.genfromtxt('harmonic_b.csv', delimiter=',')
 # m_range = range(1, cols-4)
 # x_range = range(len(m_range))
 
-correlation_x, correlation_y = correlation_function(data, a)
+correlation_x, correlation_y, correlation_std = correlation_function(data, a)
 theory_x = np.array((0.0, 2.5))
 theory_y = np.array((0.45, 0.004))
 
 fig, ax = plt.subplots()
 ax.set_yscale('log')
 ax.yaxis.set_major_formatter(plt.ScalarFormatter())
-plt.xlim(0.0, 3.0)
+plt.xlim(0.0, 2.5)
 ax.plot(theory_x, theory_y, color='tab:gray')
-ax.plot(correlation_x, correlation_y)
+ax.errorbar(correlation_x, correlation_y, correlation_std)
 # ax.plot(correlation_x, correlation_y, 'x', ms=4)
+plt.savefig('plot/6_correlation.png', dpi=dpi)
+
+fig, ax = plt.subplots()
+ax.errorbar(correlation_x, correlation_y, correlation_std)
+# ax.plot(correlation_x, correlation_y, 'x', ms=4)
+plt.savefig('plot/6_linear.png', dpi=dpi)
 
 # plt.savefig(list_filename('plot/6/correlation'), dpi=dpi)
-plt.savefig('plot/6_correlation.png', dpi=dpi)
 ## TODO: find low-lying energy levels
 
 
