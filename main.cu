@@ -356,7 +356,7 @@ int main()
     metropolis_parameters params_6 = params;
     params_6.m0 = 0.5;
     params_6.N_until_equilibrium = 100;
-    params_6.N_measure = 10000;
+    params_6.N_measure = 1000;
     params_6.N = 51;
     params_6.N_montecarlo = 20;
     params_6.mu_sq = 2.0;
