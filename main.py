@@ -22,8 +22,10 @@ def list_filename(name, suffix='.png'): # saving successively got annoying
 
 def correlation_over_m(ensemble: np.ndarray, m: float):
     ensemble_correlations = ensemble * np.roll(ensemble, -m, 1)
+    mean = np.mean(ensemble_correlations)
+    std_normalized = np.std(ensemble_correlations) / np.abs(mean) # TODO: calculate std properly? // std is right maybe, and it's really very large (thats also the reason why so much data was needed to get proper points)
 
-    return np.mean(ensemble_correlations), np.std(ensemble_correlations)
+    return mean, std_normalized
 
 def correlation_function(ensemble: np.ndarray, a: float):
     N = int(np.ceil(ensemble.shape[1] / 2)) ## TODO: is this correct?

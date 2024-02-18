@@ -314,7 +314,7 @@ int main()
     params_0.a = .5;
     params_0.N = 1000; // broken for N>1026?
     params_0.N_lattices = 1;
-    params_0.N_until_equilibrium = 50; // called Nt in the paper
+    params_0.N_until_equilibrium = 0; // called Nt in the paper
     params_0.N_measure = 200;
     params_0.N_montecarlo = 1; //only on 1 for testing purposes
     params_0.N_markov = 5; // called nBar in the paper
