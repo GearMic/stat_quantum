@@ -3,6 +3,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os.path
+# import scipy.odr as odr
+import scipy.optimize as optimize
 
 
 # def list_filename(name, suffix='.png'): # to save plots successively
@@ -155,22 +157,45 @@ correlation_x, correlation_y, correlation_std = correlation_function(data, a)
 theory_x = np.array((0.0, 2.5))
 theory_y = np.array((0.45, 0.004))
 
+
 fig, ax = plt.subplots()
 ax.set_yscale('log')
 ax.yaxis.set_major_formatter(plt.ScalarFormatter())
 plt.xlim(0.0, 2.5)
 ax.plot(theory_x, theory_y, color='tab:gray')
-ax.errorbar(correlation_x, correlation_y, correlation_std)
-# ax.plot(correlation_x, correlation_y, 'x', ms=4)
+# ax.errorbar(correlation_x, correlation_y, correlation_std)
+ax.plot(correlation_x, correlation_y, 'x', ms=4)
+# ax.plot(correlation_x, fit_y, color='tab:green')
 plt.savefig('plot/6_correlation.png', dpi=dpi)
 
 fig, ax = plt.subplots()
-ax.errorbar(correlation_x, correlation_y, correlation_std)
-# ax.plot(correlation_x, correlation_y, 'x', ms=4)
+# ax.errorbar(correlation_x, correlation_y, correlation_std)
+ax.plot(correlation_x, correlation_y, 'x', ms=4)
 plt.savefig('plot/6_linear.png', dpi=dpi)
 
-# plt.savefig(list_filename('plot/6/correlation'), dpi=dpi)
-## TODO: find low-lying energy levels
+# find Energy eigenvalues
+# prepare exponential fit
+def exp_fn(x: float, a: float, b: float):
+    return a * np.exp(b*x)
+initial_guess = (0.5, -0.1)
+
+# fit for E0
+# cut_front = 2
+# correlation_x, correlation_y = correlation_x[cut_front:], correlation_y[cut_front:]
+popt = optimize.curve_fit(exp_fn, correlation_x, correlation_y, initial_guess)
+a, b = popt[0]
+fit_y = np.array(tuple(exp_fn(x, a, b) for x in correlation_x))
+E0 = np.abs(b)
+print(E0)
+
+# fit for E1
+popt = optimize.curve_fit(exp_fn, correlation_x, correlation_y-fit_y, initial_guess)
+a, b = popt[0]
+fit_y = np.array(tuple(exp_fn(x, a, b) for x in correlation_x))
+E1 = abs(b)
+print(E1)
+print(E1-E0)
+
 
 
 #### Fig.7
