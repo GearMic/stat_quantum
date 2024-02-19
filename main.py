@@ -186,7 +186,8 @@ popt, pcov = optimize.curve_fit(exp_fn, correlation_x, correlation_y, initial_gu
 a, b = popt
 fit_y = np.array(tuple(exp_fn(x, a, b) for x in correlation_x))
 E0 = np.abs(b)
-print(E0, np.sqrt(np.diag(pcov)))
+print("E = %f" % E0)
+# print("E0 = %f +- %f" % (E0, np.sqrt(np.diag(pcov))[1]))
 
 # fit for E1
 popt = optimize.curve_fit(exp_fn, correlation_x, correlation_y-fit_y, initial_guess)
@@ -232,7 +233,8 @@ fig.savefig('plot/7_anharmonic.png', dpi=dpi)
 #### Fig. 8
 data = np.genfromtxt('anharmonic_d.csv', delimiter=',')
 
-xlower, xupper = -3., 3.
+x_bound = 2.5
+xlower, xupper = -x_bound, x_bound
 bins_x, bins_y = bin_normalized(data, 60, xlower, xupper)
 
 # TODO: add theoretical function
@@ -246,37 +248,54 @@ plt.plot(bins_x, bins_y, 'x', ms=4)#, color='tab:red')
 # plt.savefig(list_filename('plot/8/bins'), dpi=dpi)
 plt.savefig('plot/8_bins.png', dpi=dpi)
 
-"""
+
 #### Fig. 9
-epsilon = 0.25
+a = 0.25
 
 anharmonic_correlation = []
-for i in "abc":
+letters = "abcd"
+for i in letters:
     anharmonic_correlation.append(np.genfromtxt('anharmonic_correlation_%s.csv' % i, delimiter=','))
 
 plt.clf()
 fig, ax = plt.subplots()
 ax.set_yscale('log')
 ax.yaxis.set_major_formatter(plt.ScalarFormatter())
-ax.set_xlim(0.0, 3.0)
+ax.set_xlim(0.0, 5.0)
 
-markers = ('x', '+', '4')
-for data, marker in zip(anharmonic_correlation, markers):
-    rows, cols = data.shape
-    correlation_x = np.array(tuple(m*epsilon for m in range(cols)))
-    correlation_y = np.array(tuple(correlation_function_periodic(data, m, epsilon) for m in range(cols)))
+theory_x = np.array((0.0, 5.0))
+theory_y = np.array((1.45, 0.2))
+ax.plot(theory_x, theory_y, color='tab:gray')
 
-    ax.plot(correlation_x, correlation_y, marker, ms=4)
+# markers = ('x', '+', '4', (4, 0, 0)) # (4, 0, 0) is a square rotated by 0 degrees
+markers = ('x', '+', '4', '*') # (4, 0, 0) is a square rotated by 0 degrees
+for data, marker, letter in zip(anharmonic_correlation, markers, letters):
+    correlation_x, correlation_y, correlation_std = correlation_function(data, a)
 
-# fig.savefig(list_filename('plot/9/correlation'), dpi=dpi)
+    ax.plot(correlation_x, correlation_y, marker, ms=4, label=letter)
+
+ax.legend()
 fig.savefig('plot/9_correlation.png', dpi=dpi)
-"""
 
 
-#### Fig. 10
-#######
-## TODO: find low-lying energy levels
-#######
+## Fig. 10
+a = 0.25
+f_sq = (0.0, 0.5, 1.0, 1.5, 2.0)
+E = np.zeros_like(f_sq)
+# def energy_fit(data_x, data_y, data_std, initial_guess = (0.5, -0.5)):
+
+initial_guess = (0.5, -0.5)
+for i in range(len(f_sq)):
+    data = np.genfromtxt('anharmonic_energy%i.csv' % i, delimiter=',')
+    correlation_x, correlation_y, correlation_std = correlation_function(data, a)
+
+    popt, pcov = optimize.curve_fit(exp_fn, correlation_x, correlation_y, initial_guess, correlation_std)
+    E[i] = np.abs(popt[1])
+
+plt.clf()
+fig, ax = plt.subplots()
+ax.plot(f_sq, E)
+fig.savefig('plot/10_energy.png', dpi=dpi)
 
 
 #### Fig. 11

@@ -59,8 +59,9 @@ struct metropolis_parameters
     bool alt_potential;
 };
 
-// const size_t max_threads_per_block = 512;
+
 const size_t max_threads_per_block = 1024;
+const unsigned long long random_seed = 123480;
 
 
 //// helper functions
@@ -119,7 +120,10 @@ size_t cuda_block_amount(size_t kernels, size_t max_kernels)
 __device__
 double potential(double x, metropolis_parameters params)
 {
-    return 1./2. * params.mu_sq * pow(x, 2) + params.lambda * pow(x, 4); // anharmonic oscillator potential
+    if (params.alt_potential)
+        return params.lambda * pow( (pow(x, 2.) - params.f_sq), 2. ); // alt potential
+    else
+        return 1./2. * params.mu_sq * pow(x, 2.) + params.lambda * pow(x, 4.);
 }
 
 __device__
@@ -234,7 +238,7 @@ void metropolis_algo(metropolis_parameters params, double** ensemble_out, size_t
 
     curandState_t *random_state;
     CUDA_CALL(cudaMallocManaged(&random_state, N*sizeof(curandState_t)));
-    setup_randomize<<<1, max_threads_per_block>>>(random_state, N, 1234); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
+    setup_randomize<<<1, max_threads_per_block>>>(random_state, N, random_seed); // NOTE: this could be parallelized more efficiently, but it probably doesn't make a significant difference
     cudaDeviceSynchronize();
     
     double *x, *ensemble;
@@ -301,7 +305,7 @@ int main()
 
     metropolis_parameters params = {
     .metropolis_offset = 2,
-    .xlower = -2., .xupper = 2., .x0 = 0.0, .xN = 0.0,
+    .xlower = -5., .xupper = 5., .x0 = 0.0, .xN = 0.0,
     .a = 1., .N = 1000,
     .N_until_equilibrium = 100, .N_lattices = 1, .N_measure = 60, .N_montecarlo = 10, .N_markov = 1, .Delta = 2.0,
     .m0 = 1.0, .lambda = 0.0, .mu_sq = 1.0,
@@ -325,7 +329,7 @@ int main()
     params_0.xlower = -10.;
     params_0.xupper = 10.;
 
-    // params_0.N_measure = 0; // disable this part
+    params_0.N_measure = 0; // disable this part
 
     double* ensemble;
     size_t pitch, width, height;
@@ -361,17 +365,17 @@ int main()
     params_6.N_until_equilibrium = 100;
     params_6.N_measure = 1000;
     params_6.N = 51;
-    params_6.N_montecarlo = 20;
-    params_6.N_markov = 10;
+    params_6.N_montecarlo = 50;
+    params_6.N_markov = 1;
     params_6.mu_sq = 2.0;
     params_6.lambda = 0.0;
     params_6.a = 0.5;
     params_6.Delta = 2 * sqrt(params_6.a);
     metropolis_allinone(params_6, "harmonic_b.csv");
 
-/*
     // Fig. 7
     metropolis_parameters params_7 = params;
+    params_7.alt_potential = true;
     params_7.N = 50;
     params_7.N_lattices = 1;
     params_7.N_measure = 1;
@@ -381,7 +385,7 @@ int main()
     params_7.a = 1.0;
     params_7.Delta = 2 * sqrt(params.a);
     params_7.m0 = 0.5;
-//TODO: alt potential
+
     params_7.f_sq = 0.5;
     metropolis_allinone(params_7, "anharmonic_a.csv");
     params_7.f_sq = 1.0;
@@ -390,23 +394,56 @@ int main()
     metropolis_allinone(params_7, "anharmonic_c.csv");
 
     // Fig. 8
-    m0 = 0.5;
-    f_sq = 2.0;
-    N = 200;
-    epsilon = 0.25;
-    metropolis_allinone(0., 0., 10, 50, 10, 5, NULL, "anharmonic_e.csv");
+    metropolis_parameters params_8 = params;
+    params_8.alt_potential = true;
+    params_8.xlower = -5.;
+    params_8.xupper = 5.;
+    params_8.N_until_equilibrium = 10000;
+    params_8.m0 = 0.5;
+    params_8.lambda = 1.0;
+    params_8.f_sq = 2.0;
+    params_8.N = 200;
+    params_8.a = 0.25;
+    params_8.Delta = 2. * sqrt(params_8.a);
+    params_8.N_measure = 5000;
+    params_8.N_montecarlo = 10;
+    metropolis_allinone(params_8, "anharmonic_d.csv");
     // metropolis_algo(0., 0., 100, 50, 10, 5, NULL, "anharmonic_d.csv");
     // metropolis_algo(0., 0., 100, 50, 1, 5, "anharmonic_d.csv", NULL);
 
-    // //// Fig. 9
-    m0 = 0.5;
-    f_sq = 2.0;
-    N = 303;
-    a = 0.25;
-    metropolis_allinone(0., 0., 1, 10, 1, 5, NULL, "anharmonic_correlation_a.csv");
-    metropolis_allinone(0., 0., 1, 10, 1, 10, NULL, "anharmonic_correlation_b.csv");
-    metropolis_allinone(0., 0., 1, 10, 1, 15, NULL, "anharmonic_correlation_c.csv");
-*/
+    // Fig. 9
+    metropolis_parameters params_9 = params;
+    params_9.alt_potential = true;
+    params_9.N_until_equilibrium = 200;
+    params_9.N_measure = 10000;
+    params_9.lambda = 1.0;
+    params_9.m0 = 0.5;
+    params_9.f_sq = 2.0;
+    params_9.N = 303;
+    params_9.a = 0.25;
+    params_9.Delta = 2. * sqrt(params_9.a);
+    params_9.N_montecarlo = 5;
+    metropolis_allinone(params_9, "anharmonic_correlation_a.csv");
+    params_9.N_montecarlo = 10;
+    metropolis_allinone(params_9, "anharmonic_correlation_b.csv");
+    params_9.N_montecarlo = 15;
+    metropolis_allinone(params_9, "anharmonic_correlation_c.csv");
+    params_9.N_montecarlo = 1;
+    metropolis_allinone(params_9, "anharmonic_correlation_d.csv");
+
+    // Fig. 10
+    metropolis_parameters params_10 = params_9;
+    params_10.N_until_equilibrium = 200;
+    params_10.N_measure = 500;
+    params_10.N_montecarlo = 1;
+    params_10.a = 0.25;
+    params_10.Delta = 2. * sqrt(params_9.a);
+    for (size_t i=0; i<5; i++) {
+        params_10.f_sq = (double)i * 0.5;
+        char filename[] = "anharmonic_energy_";
+        sprintf(filename, "anharmonic_energy%i.csv", i);
+        metropolis_allinone(params_10, filename);
+    }
 } 
 
 // TODO: fix end points (start and end should be regarded as the same point)
