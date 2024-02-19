@@ -182,11 +182,11 @@ initial_guess = (0.5, -0.1)
 # fit for E0
 # cut_front = 2
 # correlation_x, correlation_y = correlation_x[cut_front:], correlation_y[cut_front:]
-popt = optimize.curve_fit(exp_fn, correlation_x, correlation_y, initial_guess)
-a, b = popt[0]
+popt, pcov = optimize.curve_fit(exp_fn, correlation_x, correlation_y, initial_guess, correlation_std)
+a, b = popt
 fit_y = np.array(tuple(exp_fn(x, a, b) for x in correlation_x))
 E0 = np.abs(b)
-print(E0)
+print(E0, np.sqrt(np.diag(pcov)))
 
 # fit for E1
 popt = optimize.curve_fit(exp_fn, correlation_x, correlation_y-fit_y, initial_guess)

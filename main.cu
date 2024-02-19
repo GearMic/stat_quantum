@@ -55,6 +55,8 @@ struct metropolis_parameters
     double lambda;
     double mu_sq;
     double f_sq;
+
+    bool alt_potential;
 };
 
 // const size_t max_threads_per_block = 512;
@@ -301,9 +303,10 @@ int main()
     .metropolis_offset = 2,
     .xlower = -2., .xupper = 2., .x0 = 0.0, .xN = 0.0,
     .a = 1., .N = 1000,
-    .N_until_equilibrium = 100, .N_lattices = 1, .N_measure = 60, .N_montecarlo = 5, .N_markov = 5, .Delta = 2.0,
+    .N_until_equilibrium = 100, .N_lattices = 1, .N_measure = 60, .N_montecarlo = 10, .N_markov = 1, .Delta = 2.0,
     .m0 = 1.0, .lambda = 0.0, .mu_sq = 1.0,
-    .f_sq = -1.0 // placeholder value
+    .f_sq = -1.0, // placeholder value
+    .alt_potential = false
     };
     // TODO: remove N_lattices
 
@@ -319,8 +322,8 @@ int main()
     params_0.N_montecarlo = 1; //only on 1 for testing purposes
     params_0.N_markov = 5; // called nBar in the paper
     params_0.Delta = 2.0 * sqrt(params_0.a);
-    params_0.xlower = -100.;
-    params_0.xupper = 100.;
+    params_0.xlower = -10.;
+    params_0.xupper = 10.;
 
     // params_0.N_measure = 0; // disable this part
 
@@ -359,41 +362,39 @@ int main()
     params_6.N_measure = 1000;
     params_6.N = 51;
     params_6.N_montecarlo = 20;
+    params_6.N_markov = 10;
     params_6.mu_sq = 2.0;
     params_6.lambda = 0.0;
     params_6.a = 0.5;
     params_6.Delta = 2 * sqrt(params_6.a);
     metropolis_allinone(params_6, "harmonic_b.csv");
 
-    // TODO: use the f_sq potential from here on
-    // potential_ptr = *potential_alt;
-
+/*
     // Fig. 7
-    // metropolis_parameters parameters_7 = parameters;
-    // parameters_7.N = 50;
-    // parameters_7.N_lattices = 1;
-    // parameters_7.N_measure = 1;
-    // parameters_7.N_montecarlo = 40;
-    // parameters_7.N_markov = 5;
-    // parameters_7.lambda = 1.0;
-    // parameters_7.a = 1.0;
-    // parameters_7.Delta = 2 * sqrt(parameters.a);
-    // parameters_7.m0 = 0.5;
+    metropolis_parameters params_7 = params;
+    params_7.N = 50;
+    params_7.N_lattices = 1;
+    params_7.N_measure = 1;
+    params_7.N_montecarlo = 40;
+    params_7.N_markov = 5;
+    params_7.lambda = 1.0;
+    params_7.a = 1.0;
+    params_7.Delta = 2 * sqrt(params.a);
+    params_7.m0 = 0.5;
+//TODO: alt potential
+    params_7.f_sq = 0.5;
+    metropolis_allinone(params_7, "anharmonic_a.csv");
+    params_7.f_sq = 1.0;
+    metropolis_allinone(params_7, "anharmonic_b.csv");
+    params_7.f_sq = 2.0;
+    metropolis_allinone(params_7, "anharmonic_c.csv");
 
-    // parameters_7.f_sq = 0.5;
-    // metropolis_algo(parameters_7, "anharmonic_a.csv");
-    // parameters_7.f_sq = 1.0;
-    // metropolis_algo(parameters_7, "anharmonic_b.csv");
-    // parameters_7.f_sq = 2.0;
-    // metropolis_algo(parameters_7, "anharmonic_c.csv");
-
-    /*
     // Fig. 8
     m0 = 0.5;
     f_sq = 2.0;
     N = 200;
     epsilon = 0.25;
-    metropolis_algo(0., 0., 10, 50, 10, 5, NULL, "anharmonic_e.csv");
+    metropolis_allinone(0., 0., 10, 50, 10, 5, NULL, "anharmonic_e.csv");
     // metropolis_algo(0., 0., 100, 50, 10, 5, NULL, "anharmonic_d.csv");
     // metropolis_algo(0., 0., 100, 50, 1, 5, "anharmonic_d.csv", NULL);
 
@@ -402,12 +403,10 @@ int main()
     f_sq = 2.0;
     N = 303;
     a = 0.25;
-    metropolis_algo(0., 0., 1, 10, 1, 5, NULL, "anharmonic_correlation_a.csv");
-    metropolis_algo(0., 0., 1, 10, 1, 10, NULL, "anharmonic_correlation_b.csv");
-    metropolis_algo(0., 0., 1, 10, 1, 15, NULL, "anharmonic_correlation_c.csv");
-    */
-
+    metropolis_allinone(0., 0., 1, 10, 1, 5, NULL, "anharmonic_correlation_a.csv");
+    metropolis_allinone(0., 0., 1, 10, 1, 10, NULL, "anharmonic_correlation_b.csv");
+    metropolis_allinone(0., 0., 1, 10, 1, 15, NULL, "anharmonic_correlation_c.csv");
+*/
 } 
-
 
 // TODO: fix end points (start and end should be regarded as the same point)
