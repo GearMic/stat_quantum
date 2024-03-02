@@ -6,11 +6,15 @@ else
 	OUTPUT = a
 endif
 
+OBJECTS = main.o metropolis.o helper.o
 
-all: $(TARGET) out.csv
+all: $(OBJECTS) $(TARGET) out.csv 
+
+%.o: %.cu 
+	nvcc -dc -I. -o $@ $<
 
 $(TARGET): main.cu
-	nvcc -o $(OUTPUT) main.cu
+	nvcc -I. -o $(OUTPUT) $(OBJECTS)
 
 out.csv: $(TARGET)
 	./$(TARGET)
