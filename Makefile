@@ -1,10 +1,16 @@
-COMFLAGS = -lm -Wno-incompatible-pointer-types
+ifeq ($(OS), Windows_NT)
+	TARGET = a.exe
+	OUTPUT = a.exe
+else
+	TARGET = a
+	OUTPUT = a
+endif
 
-all: a out.csv
 
-a: main.cu
-	nvcc -o a main.cu
-#	clang $(COMFLAGS) -o a main.c
+all: $(TARGET) out.csv
 
-out.csv: a
-	./a
+$(TARGET): main.cu
+	nvcc -o $(OUTPUT) main.cu
+
+out.csv: $(TARGET)
+	./$(TARGET)

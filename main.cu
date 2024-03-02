@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <complex.h>
 #include <string.h>
 #include <time.h>
 
@@ -303,15 +302,26 @@ int main()
     }
 
 
-    metropolis_parameters params = {
-    .metropolis_offset = 2,
-    .xlower = -5., .xupper = 5., .x0 = 0.0, .xN = 0.0,
-    .a = 1., .N = 1000,
-    .N_until_equilibrium = 100, .N_lattices = 1, .N_measure = 60, .N_montecarlo = 10, .N_markov = 1, .Delta = 2.0,
-    .m0 = 1.0, .lambda = 0.0, .mu_sq = 1.0,
-    .f_sq = -1.0, // placeholder value
-    .alt_potential = false
-    };
+    metropolis_parameters params;
+    params.metropolis_offset = 2;
+    params.xlower = -5;
+    params.xupper = 5;
+    params.x0 = 0.0;
+    params.xN = 0.0;
+    params.a = 1.;
+    params.N = 1000;
+    params.N_until_equilibrium = 100;
+    params.N_lattices = 1;
+    params.N_measure = 60;
+    params.N_montecarlo = 10;
+    params.N_markov = 1;
+    params.Delta = 2.0;
+    params.m0 = 1.0;
+    params.lambda = 0.0;
+    params.mu_sq = 1.0;
+    params.f_sq = -1.0; // placeholder value
+    params.alt_potential = false;
+    
     // TODO: remove N_lattices
 
 
@@ -415,7 +425,7 @@ int main()
     metropolis_parameters params_9 = params;
     params_9.alt_potential = true;
     params_9.N_until_equilibrium = 200;
-    params_9.N_measure = 10000;
+    params_9.N_measure = 500;
     params_9.lambda = 1.0;
     params_9.m0 = 0.5;
     params_9.f_sq = 2.0;
