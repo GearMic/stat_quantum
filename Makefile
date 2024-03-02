@@ -14,7 +14,7 @@ all: $(OBJECTS) $(TARGET) out.csv
 	nvcc -dc -I. -o $@ $<
 
 $(TARGET): main.cu
-	nvcc -I. -o $(OUTPUT) $(OBJECTS)
+	nvcc -I. -L./bin -o $(OUTPUT) $(OBJECTS)
 
 out.csv: $(TARGET)
 	./$(TARGET)

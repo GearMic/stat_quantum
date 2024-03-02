@@ -14,18 +14,19 @@ int main()
 {
     // Query CUDA device properties
     int nDevices;
-
-    cudaGetDeviceCount(&nDevices);
+ 
+    cudaGetDeviceCount(&nDevices); 
     for (int i = 0; i < nDevices; i++) {
         cudaDeviceProp prop;
         cudaGetDeviceProperties(&prop, i);
         printf("Device Number: %i\n", i);
         printf("Device name: %s\n", prop.name);
         printf("Max threads per block: %i\n", prop.maxThreadsPerBlock);
+        printf("\n");
     }
 
 
-    metropolis_parameters params;
+    metropolis_parameters params; 
     params.metropolis_offset = 2;
     params.xlower = -5;
     params.xupper = 5;
@@ -62,7 +63,7 @@ int main()
     params_0.xlower = -10.;
     params_0.xupper = 10.;
 
-    params_0.N_measure = 0; // disable this part
+    // params_0.N_measure = 0; // disable this part
 
     double* ensemble;
     size_t pitch, width, height;
