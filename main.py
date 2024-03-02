@@ -141,7 +141,7 @@ bins_x, bins_y = bin_normalized(data, 60, xlower, xupper)
 # TODO: add theoretical distribution
 
 plt.clf()
-plt.plot(bins_x, bins_y, 'x', ms=4)
+plt.plot(bins_x, bins_y, 'x', ms=ms)
 plt.savefig('plot/8_bins.png', dpi=dpi)
 
 
