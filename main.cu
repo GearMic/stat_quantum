@@ -27,15 +27,13 @@ int main()
 
 
     metropolis_parameters params; 
-    params.metropolis_offset = 2;
+    params.kernel_offset = 2;
     params.xlower = -5;
     params.xupper = 5;
     params.x0 = 0.0;
-    params.xN = 0.0;
     params.a = 1.;
     params.N = 1000;
     params.N_until_equilibrium = 100;
-    params.N_lattices = 1;
     params.N_measure = 60;
     params.N_montecarlo = 10;
     params.N_markov = 1;
@@ -45,17 +43,13 @@ int main()
     params.mu_sq = 1.0;
     params.f_sq = -1.0; // placeholder value
     params.alt_potential = false;
-    
-    // TODO: remove N_lattices
-
 
     // step 1: plot action
     metropolis_parameters params_0 = params;
     params_0.m0 = .5;
     params_0.a = .5;
     params_0.N = 1000; // broken for N>1026?
-    params_0.N_lattices = 1;
-    params_0.N_until_equilibrium = 0; // called Nt in the paper
+    params_0.N_until_equilibrium = 0; 
     params_0.N_measure = 200;
     params_0.N_montecarlo = 1; //only on 1 for testing purposes
     params_0.N_markov = 5; // called nBar in the paper
@@ -72,11 +66,10 @@ int main()
     double* actions; 
     CUDA_CALL((cudaMallocHost(&actions, height)));
 
-    size_t n_blocks = cuda_block_amount(params_0.N-1, max_threads_per_block);
+    size_t n_blocks = ceil_division(params_0.N-1, max_threads_per_block);
 
     for (size_t i=0; i<height; i++) {
-        // action_latticeconf<<<n_blocks, max_threads_per_block>>>((double*)((char*)ensemble + i*pitch), params_0, actions+i);
-        action_latticeconf_synchronous<<<1, 1>>>((double*)((char*)ensemble + i*pitch), params_0, actions+i);
+        action_latticeconf<<<1, 1>>>((double*)((char*)ensemble + i*pitch), params_0, actions+i);
     };
     CUDA_CALL(cudaDeviceSynchronize());
 
@@ -111,7 +104,6 @@ int main()
     metropolis_parameters params_7 = params;
     params_7.alt_potential = true;
     params_7.N = 50;
-    params_7.N_lattices = 1;
     params_7.N_measure = 1;
     params_7.N_montecarlo = 40;
     params_7.N_markov = 5;
@@ -179,5 +171,3 @@ int main()
         metropolis_allinone(params_10, filename);
     }
 } 
-
-// TODO: fix end points (start and end should be regarded as the same point)

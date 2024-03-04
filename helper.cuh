@@ -35,4 +35,4 @@ __global__ void randomize_double_array(double* array, size_t len, double lower, 
 void printfl(double x);
 void export_csv_double_1d(FILE* file, double* arr, size_t cols);
 void export_csv_double_2d(FILE* file, double* arr, size_t pitch, size_t width, size_t height);
-size_t cuda_block_amount(size_t kernels, size_t max_kernels);
+size_t ceil_division(size_t dividend, size_t divisor);

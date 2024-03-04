@@ -44,7 +44,8 @@ void export_csv_double_2d(FILE* file, double* arr, size_t pitch, size_t width, s
     };
 }
 
-size_t cuda_block_amount(size_t kernels, size_t max_kernels)
+size_t ceil_division(size_t dividend, size_t divisor)
+// return lowest integer that is larger or equal to dividend/divisor
 {
-    return (int)ceil( (double)(kernels) / max_kernels );
+    return (int)ceil( (double)(dividend) / divisor );
 }
