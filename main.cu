@@ -80,6 +80,13 @@ int main()
     CUDA_CALL(cudaFree(ensemble));
     CUDA_CALL(cudaFreeHost(actions));
 
+    // autocorrelation data
+    metropolis_parameters params_1 = params;
+    params_1.N = 100;
+    params_1.N_measure = 256;
+    params_1.N_montecarlo = 1;
+    params_1.a = 1.0;
+    metropolis_allinone(params_1, "autocorrelation.csv");
 
     // Fig 4, 5
     metropolis_parameters params_4_5 = params;
@@ -90,7 +97,7 @@ int main()
     metropolis_parameters params_6 = params;
     params_6.m0 = 0.5;
     params_6.N_until_equilibrium = 100;
-    params_6.N_measure = 1000;
+    params_6.N_measure = 500;
     params_6.N = 51;
     params_6.N_montecarlo = 50;
     params_6.N_markov = 1;
@@ -131,7 +138,7 @@ int main()
     params_8.N = 200;
     params_8.a = 0.25;
     params_8.Delta = 2. * sqrt(params_8.a);
-    params_8.N_measure = 5000;
+    params_8.N_measure = 500;
     params_8.N_montecarlo = 10;
     metropolis_allinone(params_8, "anharmonic_d.csv");
     // metropolis_algo(0., 0., 100, 50, 10, 5, NULL, "anharmonic_d.csv");

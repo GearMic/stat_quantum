@@ -165,3 +165,25 @@ plt.clf()
 fig, ax = plt.subplots()
 ax.plot(f_sq, E)
 fig.savefig('plot/10_energy.png', dpi=dpi)
+
+
+## autocorrelation
+a = 1.0
+data = np.genfromtxt('autocorrelation.csv', delimiter=',')
+
+correlation_x, correlation_y, _ = correlation_function(data, a)
+
+
+
+
+
+"""
+## testing
+testarr = np.linspace(0, 20, 40)
+bin_size = 4
+testarr_binned = bin_obs(bin_size, testarr)
+print(testarr_binned)
+
+autocorr = autocorrelation_estimator(3, testarr_binned, np.mean(testarr_binned))
+print(autocorr)
+"""
