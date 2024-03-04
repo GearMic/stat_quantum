@@ -22,6 +22,16 @@ def correlation_function(ensemble: np.ndarray, a: float):
 
     return x, correlation, std
 
+def autocorrelation_estimator(t: int, obs: np.ndarray, obs_mean: float):
+    """Eq.(31) from monte carlo errors paper. 'obs' stands for observable"""
+    if len(obs.shape) > 1:
+        print("ERROR: Observable should be 1d array.")
+
+    # multiply each value at i with the value at i+t, if end of the array is not reached
+    obs_correlations = (obs * np.roll(obs, -t))[:-t]
+
+    return np.mean(obs_correlations)
+
 def bin_normalized(data, n_bins, xlower, xupper):
     rows, cols = data.shape
     bin_size = (xupper - xlower) / n_bins
