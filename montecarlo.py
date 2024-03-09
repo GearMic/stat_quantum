@@ -18,7 +18,7 @@ def correlation_over_m(ensemble: np.ndarray, m: float):
 
     return mean, std_normalized
 
-def correlation_function(ensemble: np.ndarray, a: float):
+def correlation_function(ensemble: np.ndarray, a: float): # TODO: replace this by autocorrelation_estimator
     N = int(np.ceil(ensemble.shape[1] / 2)) # TODO: is this correct?
     mrange = range(N)
     x = np.array(mrange) * a
@@ -30,22 +30,30 @@ def correlation_function(ensemble: np.ndarray, a: float):
     return x, correlation, std
 
 
-def check_1d(array: np.ndarray):
-    n = array.ndim
-    if n > 1:
-        print("ERROR: array should be 1d, but is %id." % n)
+def check_nd(array: np.ndarray, n: int):
+    """print Error if array is not n-dimensional"""
+    m = array.ndim
+    if m != n:
+        print("ERROR: array should be %id, but is %id." % (n, m))
 
-def autocorrelation_estimator(t: int, obs: np.ndarray, obs_mean: float):
-    """Eq.(31) from monte carlo errors paper. 'obs' stands for observable"""
-    check_1d(obs)
+def autocorrelation_estimator_2d(t: int, obs: np.ndarray, obs_mean: np.ndarray):
+    """
+    Calculates Eq.(31) from monte carlo errors paper individually for each row of obs.
+    'obs' stands for observable
+    """
+
+    check_nd(obs, 2)
+
+    deviation = obs - np.tile(obs_mean, (obs.shape[1], 1)).T # deviation from mean for each row
     # multiply each value at i with the value at i+t, if end of the array is not reached
-    obs_correlations = ((obs-obs_mean) * np.roll((obs-obs_mean), -t))[:-t]
+    obs_correlations = ((deviation) * np.roll((deviation), -t, 1))[:, :-t]
 
-    return np.mean(obs_correlations)
+    return np.mean(obs_correlations, 1)
 
-def bin_obs(size: int, obs: np.ndarray):
+def bin_obs(obs: np.ndarray, size: int):
     """bin size values of obs into one value."""
-    check_1d(obs)
+
+    check_nd(obs, 1)
     n = len(obs)
     if n % size != 0:
         print("ERROR: array length not divisible by bin size.")

@@ -83,8 +83,9 @@ int main()
     // autocorrelation data
     metropolis_parameters params_1 = params;
     params_1.N = 100;
-    params_1.N_measure = 256;
+    params_1.N_measure = 1024;
     params_1.N_montecarlo = 1;
+    params_1.N_markov = 1;
     params_1.a = 1.0;
     metropolis_allinone(params_1, "autocorrelation.csv");
 

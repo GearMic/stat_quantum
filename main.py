@@ -171,9 +171,28 @@ fig.savefig('plot/10_energy.png', dpi=dpi)
 a = 1.0
 data = np.genfromtxt('autocorrelation.csv', delimiter=',')
 
-correlation_x, correlation_y, _ = correlation_function(data, a)
+# TODO: is the mean correct?
+obs = autocorrelation_estimator_2d(3, data, np.mean(data, 1)) # example observable
 
+n_bin_steps = np.log2(len(obs)) # max amount of possible binning steps with bins of size 2
+if not float(n_bin_steps).is_integer():
+    print("ERROR: amount of observable values is not a power of 2")
+n_bin_steps = int(n_bin_steps)
 
+# calculate error for different bin sizes
+binsize = [1]
+error = [np.std(obs)]
+for i in range(n_bin_steps):
+    obs = bin_obs(obs, 2)
+    binsize.append(2**i)
+    error.append(np.std(obs))
+
+fig, ax = plt.subplots()
+ax.plot(binsize, error)
+ax.set_xlabel("Bin size")
+ax.set_ylabel("Error")
+
+fig.savefig('plot/B_error.png')
 
 
 
