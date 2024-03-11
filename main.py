@@ -177,7 +177,7 @@ data = np.genfromtxt('autocorrelation.csv', delimiter=',')
 obs = data[:, 23]
 
 # plot autocorrelation of obs
-time, corr = autocorrelation_range(obs, 100)
+time, corr = autocorrelation_range(obs, 100, np.mean(obs))
 fig, ax = plt.subplots()
 ax.plot(time, corr)
 ax.set_xlabel("$t$")

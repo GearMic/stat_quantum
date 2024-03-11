@@ -17,7 +17,7 @@ def check_nd(array: np.ndarray, n: int):
     if m != n:
         print("ERROR: array should be %id, but is %id." % (n, m))
 
-def autocorrelation_estimator(t: int, obs: np.ndarray, obs_mean: np.ndarray = None, periodic: bool = False):
+def autocorrelation_estimator(obs: np.ndarray, t: int, obs_mean: np.ndarray = None, periodic: bool = False):
     """
     Calculates Eq.(31) from monte carlo errors paper.
     if obs is 2d, does so individually for each row of obs.
@@ -40,7 +40,7 @@ def autocorrelation_estimator(t: int, obs: np.ndarray, obs_mean: np.ndarray = No
     return np.squeeze(np.mean(obs_correlations, 1))
 
 
-def autocorrelation_range(obs: np.ndarray, N: int, periodic: bool = False):
+def autocorrelation_range(obs: np.ndarray, N: int, obs_mean: np.ndarray = None, periodic: bool = False):
     """
     calculate autocorrelation for t-values up to N.
     if obs is 2d, then the mean of the correlations is taken for each t.
@@ -50,7 +50,7 @@ def autocorrelation_range(obs: np.ndarray, N: int, periodic: bool = False):
 
     corr = np.zeros(N)
     for t in trange:
-        corr[t] = np.mean(autocorrelation_estimator(t, obs, periodic=periodic))
+        corr[t] = np.mean(autocorrelation_estimator(obs, t, obs_mean, periodic))
 
     return np.array(trange), corr
 
