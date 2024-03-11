@@ -11,23 +11,23 @@ def bin_normalized(data, n_bins, xlower, xupper):
 
     return bins_x, bins_y
     
-def correlation_over_m(ensemble: np.ndarray, m: float):
-    ensemble_correlations = ensemble * np.roll(ensemble, -m, 1)
-    mean = np.mean(ensemble_correlations)
-    std_normalized = np.std(ensemble_correlations) / np.abs(mean) # TODO: calculate std properly
+# def correlation_over_m(ensemble: np.ndarray, m: float):
+#     ensemble_correlations = ensemble * np.roll(ensemble, -m, 1)
+#     mean = np.mean(ensemble_correlations)
+#     std_normalized = np.std(ensemble_correlations) / np.abs(mean) # TODO: calculate std properly
 
-    return mean, std_normalized
+#     return mean, std_normalized
 
-def correlation_function(ensemble: np.ndarray, a: float): # TODO: replace this by autocorrelation_estimator
-    N = int(np.ceil(ensemble.shape[1] / 2)) # TODO: is this correct?
-    mrange = range(N)
-    x = np.array(mrange) * a
+# def correlation_function(ensemble: np.ndarray, a: float): # TODO: replace this by autocorrelation_estimator
+#     N = int(np.ceil(ensemble.shape[1] / 2)) # TODO: is this correct?
+#     mrange = range(N)
+#     x = np.array(mrange) * a
 
-    correlation, std = np.zeros(N), np.zeros(N)
-    for m in mrange:
-        correlation[m], std[m] = correlation_over_m(ensemble, m)
+#     correlation, std = np.zeros(N), np.zeros(N)
+#     for m in mrange:
+#         correlation[m], std[m] = correlation_over_m(ensemble, m)
 
-    return x, correlation, std
+#     return x, correlation, std
 
 
 def check_nd(array: np.ndarray, n: int):
@@ -36,22 +36,45 @@ def check_nd(array: np.ndarray, n: int):
     if m != n:
         print("ERROR: array should be %id, but is %id." % (n, m))
 
-def autocorrelation_estimator_2d(t: int, obs: np.ndarray, obs_mean: np.ndarray):
+def autocorrelation_estimator(t: int, obs: np.ndarray, obs_mean: np.ndarray, periodic: bool = False):
     """
-    Calculates Eq.(31) from monte carlo errors paper individually for each row of obs.
-    'obs' stands for observable
+    Calculates Eq.(31) from monte carlo errors paper.
+    if obs is 2d, does so individually for each row of obs.
+    'obs' stands for observable.
     """
 
-    check_nd(obs, 2)
+    if obs.ndim == 1:
+        obs = np.expand_dims(obs, 0)
 
     deviation = obs - np.tile(obs_mean, (obs.shape[1], 1)).T # deviation from mean for each row
-    # multiply each value at i with the value at i+t, if end of the array is not reached
-    obs_correlations = ((deviation) * np.roll((deviation), -t, 1))[:, :-t]
+    obs_correlations = ((deviation) * np.roll((deviation), -t, 1)) # multiply each value at i with the value at i+t
 
-    return np.mean(obs_correlations, 1)
+    # cut away the values past the end of the array if periodic is false
+    if not periodic:
+        obs_correlations = obs_correlations[:, :-t]
 
-def bin_obs(obs: np.ndarray, size: int):
-    """bin size values of obs into one value."""
+    return np.squeeze(np.mean(obs_correlations, 1))
+
+def correlation_function(ensemble: np.ndarray, a: float):
+    """
+    autocorrelation over an ensemble with lattice distance a and periodic boundary conditions.
+    returns array of distance values and corresponding correlations
+    """
+    N = int(np.ceil(ensemble.shape[1] / 2)) # max amount of t values without repetitions
+    trange = range(N)
+    distance = np.array(trange) * a
+
+    means = np.mean(ensemble, 1)
+    correlation = np.zeros(N)
+    for t in trange:
+        correlation[t] = np.mean(autocorrelation_estimator(t, ensemble, means, periodic=True))
+
+    return distance, correlation
+
+def bin_mean(obs: np.ndarray, size: int):
+    """
+    turn size values of obs into one value by calculating the mean.
+    """
 
     check_nd(obs, 1)
     n = len(obs)

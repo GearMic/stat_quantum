@@ -48,7 +48,7 @@ plt.savefig('plot/5_bins.png', dpi=dpi)
 a = 0.5
 data = np.genfromtxt('harmonic_b.csv', delimiter=',')
 
-correlation_x, correlation_y, correlation_std = correlation_function(data, a)
+correlation_x, correlation_y = correlation_function(data, a)
 # theoretical line from paper
 theory_x = np.array((0.0, 2.5))
 theory_y = np.array((0.45, 0.004))
@@ -59,7 +59,8 @@ ax.yaxis.set_major_formatter(plt.ScalarFormatter())
 plt.xlim(0.0, 2.5)
 ax.plot(theory_x, theory_y, color='tab:gray')
 # ax.plot(correlation_x, correlation_y, 'x', ms=4) # no errorbars
-ax.errorbar(correlation_x, correlation_y, correlation_std) # errorbars
+ax.plot(correlation_x, correlation_y, ms=4)
+# ax.errorbar(correlation_x, correlation_y, correlation_std) # errorbars
 plt.savefig('plot/6_correlation.png', dpi=dpi)
 
 fig, ax = plt.subplots()
@@ -73,12 +74,12 @@ def exp_fn(x: float, a: float, b: float):
 initial_guess = (0.5, -0.1)
 
 # fit for E0
-popt, pcov = optimize.curve_fit(exp_fn, correlation_x, correlation_y, initial_guess, correlation_std)
-a, b = popt
-fit_y = np.array(tuple(exp_fn(x, a, b) for x in correlation_x))
-E = np.abs(b)
-E_err = np.sqrt(np.diag(pcov))[1]
-print("E = %f" % E)
+# popt, pcov = optimize.curve_fit(exp_fn, correlation_x, correlation_y, initial_guess, correlation_std)
+# a, b = popt
+# fit_y = np.array(tuple(exp_fn(x, a, b) for x in correlation_x))
+# E = np.abs(b)
+# E_err = np.sqrt(np.diag(pcov))[1]
+# print("E = %f" % E)
 
 
 ## Fig.7
@@ -138,7 +139,7 @@ ax.plot(theory_x, theory_y, color='tab:gray')
 
 markers = ('x', '+', '4', '*')
 for data, marker, letter in zip(data_tup, markers, letters):
-    correlation_x, correlation_y, correlation_std = correlation_function(data, a)
+    correlation_x, correlation_y = correlation_function(data, a)
 
     ax.plot(correlation_x, correlation_y, marker, ms=4, label=letter)
 
@@ -147,7 +148,7 @@ fig.savefig('plot/9_correlation.png', dpi=dpi)
 
 
 ## Fig. 10
-a = 0.25
+""" a = 0.25
 f_sq = (0.0, 0.5, 1.0, 1.5, 2.0)
 E = np.zeros_like(f_sq)
 def exp_fn(x: float, a: float, b: float):
@@ -164,7 +165,8 @@ for i in range(len(f_sq)):
 plt.clf()
 fig, ax = plt.subplots()
 ax.plot(f_sq, E)
-fig.savefig('plot/10_energy.png', dpi=dpi)
+fig.savefig('plot/10_energy.png', dpi=dpi) """
+
 
 
 ## autocorrelation
@@ -172,7 +174,7 @@ a = 1.0
 data = np.genfromtxt('autocorrelation.csv', delimiter=',')
 
 # TODO: is the mean correct?
-obs = autocorrelation_estimator_2d(3, data, np.mean(data, 1)) # example observable
+obs = autocorrelation_estimator(3, data, np.mean(data, 1)) # example observable
 
 n_bin_steps = np.log2(len(obs)) # max amount of possible binning steps with bins of size 2
 if not float(n_bin_steps).is_integer():
@@ -183,7 +185,7 @@ n_bin_steps = int(n_bin_steps)
 binsize = [1]
 error = [np.std(obs)]
 for i in range(n_bin_steps):
-    obs = bin_obs(obs, 2)
+    obs = bin_mean(obs, 2)
     binsize.append(2**i)
     error.append(np.std(obs))
 
