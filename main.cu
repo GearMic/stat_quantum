@@ -86,7 +86,11 @@ int main()
     params_1.N_measure = 1024;
     params_1.N_montecarlo = 1;
     params_1.N_markov = 1;
-    params_1.a = 1.0;
+    params_1.a = 0.5;
+    params_1.Delta = 2.0;
+    params_1.m0 = 0.5;
+    params_1.lambda = 0.0;
+    params_1.mu_sq = 2.0;
     metropolis_allinone(params_1, "autocorrelation.csv");
 
     // Fig 4, 5

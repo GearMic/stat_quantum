@@ -5,19 +5,12 @@ import matplotlib.pyplot as plt
 import os.path
 import scipy.optimize as optimize
 
-# helper constants
-dpi = 200
+## helper constants
+dpi = 300
 ms = 4
 
 
-# plot action over time
-fig, ax = plt.subplots()
-data = np.genfromtxt('action.csv', delimiter=',')
-plt.plot(range(len(data)), data) 
-plt.savefig('plot/0_plot.png', dpi=dpi)
-
-
-# Fig.4
+## Fig.4
 data = np.genfromtxt('harmonic_a.csv', delimiter=',')
 rows, cols = data.shape
 t = range(cols)
@@ -29,8 +22,8 @@ for row in range(3):
 plt.savefig('plot/4_plot.png', dpi=dpi)
 
 
-# Fig. 5
-data = data[:, :-1]
+## Fig. 5
+data = data[:, :-1] # remove xN, which is locked at 0, for plotting the bins
 
 xlower, xupper = -3., 3.
 bins_x, bins_y = bin_normalized(data, 31, xlower, xupper)
@@ -58,28 +51,27 @@ ax.set_yscale('log')
 ax.yaxis.set_major_formatter(plt.ScalarFormatter())
 plt.xlim(0.0, 2.5)
 ax.plot(theory_x, theory_y, color='tab:gray')
-# ax.plot(correlation_x, correlation_y, 'x', ms=4) # no errorbars
-ax.plot(correlation_x, correlation_y, ms=4)
-# ax.errorbar(correlation_x, correlation_y, correlation_std) # errorbars
+ax.plot(correlation_x, correlation_y, 'x', ms=4)
+# ax.errorbar(correlation_x, correlation_y, correlation_std)
 plt.savefig('plot/6_correlation.png', dpi=dpi)
 
 fig, ax = plt.subplots()
 ax.plot(correlation_x, correlation_y, 'x', ms=4)
 plt.savefig('plot/6_correlation_linear.png', dpi=dpi)
 
-# find Energy eigenvalues
+""" # find Energy eigenvalues
 # prepare exponential fit
 def exp_fn(x: float, a: float, b: float):
     return a * np.exp(b*x)
 initial_guess = (0.5, -0.1)
 
 # fit for E0
-# popt, pcov = optimize.curve_fit(exp_fn, correlation_x, correlation_y, initial_guess, correlation_std)
-# a, b = popt
-# fit_y = np.array(tuple(exp_fn(x, a, b) for x in correlation_x))
-# E = np.abs(b)
-# E_err = np.sqrt(np.diag(pcov))[1]
-# print("E = %f" % E)
+popt, pcov = optimize.curve_fit(exp_fn, correlation_x, correlation_y, initial_guess, correlation_std)
+a, b = popt
+fit_y = np.array(tuple(exp_fn(x, a, b) for x in correlation_x))
+E = np.abs(b)
+E_err = np.sqrt(np.diag(pcov))[1]
+print("E = %f" % E) """
 
 
 ## Fig.7
@@ -168,15 +160,21 @@ ax.plot(f_sq, E)
 fig.savefig('plot/10_energy.png', dpi=dpi) """
 
 
+## A: plot action over time
+fig, ax = plt.subplots()
+data = np.genfromtxt('action.csv', delimiter=',')
+plt.plot(range(len(data)), data) 
+plt.savefig('plot/0_plot.png', dpi=dpi)
 
-## autocorrelation
+
+## B: autocorrelation, C: naive error
 a = 1.0
 data = np.genfromtxt('autocorrelation.csv', delimiter=',')
 
 # example observable
 # obs = autocorrelation_estimator(3, data, np.mean(data, 1))
 # obs = np.mean(data, 1)
-obs = data[:, 3]
+obs = data[:, 23]
 
 # plot autocorrelation of obs
 time, corr = autocorrelation_range(obs, 100)
@@ -191,7 +189,7 @@ if not float(n_bin_steps).is_integer():
     print("ERROR: amount of observable values is not a power of 2")
 n_bin_steps = int(n_bin_steps)
 
-# calculate error for different bin sizes
+# calculate standard deviation for different bin sizes
 binsize = [1]
 error = [np.std(obs)]
 for i in range(n_bin_steps):
@@ -205,16 +203,3 @@ ax.set_xlabel("Bin size")
 ax.set_ylabel("Error")
 
 fig.savefig('plot/B_error.png')
-
-
-
-"""
-## testing
-testarr = np.linspace(0, 20, 40)
-bin_size = 4
-testarr_binned = bin_obs(bin_size, testarr)
-print(testarr_binned)
-
-autocorr = autocorrelation_estimator(3, testarr_binned, np.mean(testarr_binned))
-print(autocorr)
-"""

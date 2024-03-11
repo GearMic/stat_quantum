@@ -10,25 +10,6 @@ def bin_normalized(data, n_bins, xlower, xupper):
     bins_y = bins / bin_size / (rows*cols)
 
     return bins_x, bins_y
-    
-# def correlation_over_m(ensemble: np.ndarray, m: float):
-#     ensemble_correlations = ensemble * np.roll(ensemble, -m, 1)
-#     mean = np.mean(ensemble_correlations)
-#     std_normalized = np.std(ensemble_correlations) / np.abs(mean) # TODO: calculate std properly
-
-#     return mean, std_normalized
-
-# def correlation_function(ensemble: np.ndarray, a: float): # TODO: replace this by autocorrelation_estimator
-#     N = int(np.ceil(ensemble.shape[1] / 2)) # TODO: is this correct?
-#     mrange = range(N)
-#     x = np.array(mrange) * a
-
-#     correlation, std = np.zeros(N), np.zeros(N)
-#     for m in mrange:
-#         correlation[m], std[m] = correlation_over_m(ensemble, m)
-
-#     return x, correlation, std
-
 
 def check_nd(array: np.ndarray, n: int):
     """print Error if array is not n-dimensional"""
@@ -61,7 +42,8 @@ def autocorrelation_estimator(t: int, obs: np.ndarray, obs_mean: np.ndarray = No
 
 def autocorrelation_range(obs: np.ndarray, N: int, periodic: bool = False):
     """
-    calculate autocorrelation for t-values up to N
+    calculate autocorrelation for t-values up to N.
+    if obs is 2d, then the mean of the correlations is taken for each t.
     """
 
     trange = range(N)
