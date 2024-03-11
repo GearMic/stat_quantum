@@ -48,7 +48,7 @@ plt.savefig('plot/5_bins.png', dpi=dpi)
 a = 0.5
 data = np.genfromtxt('harmonic_b.csv', delimiter=',')
 
-correlation_x, correlation_y = correlation_function(data, a)
+correlation_x, correlation_y = ensemble_autocorrelation(data, a)
 # theoretical line from paper
 theory_x = np.array((0.0, 2.5))
 theory_y = np.array((0.45, 0.004))
@@ -139,7 +139,7 @@ ax.plot(theory_x, theory_y, color='tab:gray')
 
 markers = ('x', '+', '4', '*')
 for data, marker, letter in zip(data_tup, markers, letters):
-    correlation_x, correlation_y = correlation_function(data, a)
+    correlation_x, correlation_y = ensemble_autocorrelation(data, a)
 
     ax.plot(correlation_x, correlation_y, marker, ms=4, label=letter)
 
@@ -173,8 +173,18 @@ fig.savefig('plot/10_energy.png', dpi=dpi) """
 a = 1.0
 data = np.genfromtxt('autocorrelation.csv', delimiter=',')
 
-# TODO: is the mean correct?
-obs = autocorrelation_estimator(3, data, np.mean(data, 1)) # example observable
+# example observable
+# obs = autocorrelation_estimator(3, data, np.mean(data, 1))
+# obs = np.mean(data, 1)
+obs = data[:, 3]
+
+# plot autocorrelation of obs
+time, corr = autocorrelation_range(obs, 100)
+fig, ax = plt.subplots()
+ax.plot(time, corr)
+ax.set_xlabel("$t$")
+ax.set_ylabel("$\\Gamma(t)$")
+fig.savefig('plot/C_correlation.png', dpi=dpi)
 
 n_bin_steps = np.log2(len(obs)) # max amount of possible binning steps with bins of size 2
 if not float(n_bin_steps).is_integer():

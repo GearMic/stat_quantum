@@ -36,7 +36,7 @@ def check_nd(array: np.ndarray, n: int):
     if m != n:
         print("ERROR: array should be %id, but is %id." % (n, m))
 
-def autocorrelation_estimator(t: int, obs: np.ndarray, obs_mean: np.ndarray, periodic: bool = False):
+def autocorrelation_estimator(t: int, obs: np.ndarray, obs_mean: np.ndarray = None, periodic: bool = False):
     """
     Calculates Eq.(31) from monte carlo errors paper.
     if obs is 2d, does so individually for each row of obs.
@@ -45,31 +45,43 @@ def autocorrelation_estimator(t: int, obs: np.ndarray, obs_mean: np.ndarray, per
 
     if obs.ndim == 1:
         obs = np.expand_dims(obs, 0)
+    
+    if obs_mean == None:
+        obs_mean = np.mean(obs, 1)
 
     deviation = obs - np.tile(obs_mean, (obs.shape[1], 1)).T # deviation from mean for each row
     obs_correlations = ((deviation) * np.roll((deviation), -t, 1)) # multiply each value at i with the value at i+t
 
     # cut away the values past the end of the array if periodic is false
-    if not periodic:
+    if not periodic and t != 0:
         obs_correlations = obs_correlations[:, :-t]
 
     return np.squeeze(np.mean(obs_correlations, 1))
 
-def correlation_function(ensemble: np.ndarray, a: float):
+
+def autocorrelation_range(obs: np.ndarray, N: int, periodic: bool = False):
+    """
+    calculate autocorrelation for t-values up to N
+    """
+
+    trange = range(N)
+
+    corr = np.zeros(N)
+    for t in trange:
+        corr[t] = np.mean(autocorrelation_estimator(t, obs, periodic=periodic))
+
+    return np.array(trange), corr
+
+def ensemble_autocorrelation(ensemble: np.ndarray, a: float):
     """
     autocorrelation over an ensemble with lattice distance a and periodic boundary conditions.
     returns array of distance values and corresponding correlations
     """
-    N = int(np.ceil(ensemble.shape[1] / 2)) # max amount of t values without repetitions
-    trange = range(N)
-    distance = np.array(trange) * a
 
-    means = np.mean(ensemble, 1)
-    correlation = np.zeros(N)
-    for t in trange:
-        correlation[t] = np.mean(autocorrelation_estimator(t, ensemble, means, periodic=True))
+    N = int(np.ceil(ensemble.shape[1] / 2))
+    trange, corr = autocorrelation_range(ensemble, N, periodic=True)
 
-    return distance, correlation
+    return trange, corr
 
 def bin_mean(obs: np.ndarray, size: int):
     """
