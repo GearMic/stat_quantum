@@ -42,12 +42,14 @@ plt.savefig('plot/5_bins.png', dpi=dpi)
 ## Fig. 6
 a = 0.5
 data = np.genfromtxt('harmonic_b.csv', delimiter=',')
-
-correlation_x, correlation_y = ensemble_autocorrelation(data, a)
 # theoretical line from paper
 theory_x = np.array((0.0, 2.5))
 theory_y = np.array((0.45, 0.004))
 
+trange, corr = ensemble_autocorrelation(data, a)
+corr_std = 0 # TODO:
+
+correlation_x, correlation_y = trange, np.mean(corr, 0) # remove this
 fig, ax = plt.subplots()
 ax.set_yscale('log')
 ax.yaxis.set_major_formatter(plt.ScalarFormatter())
@@ -133,7 +135,7 @@ ax.plot(theory_x, theory_y, color='tab:gray')
 
 markers = ('x', '+', '4', '*')
 for data, marker, letter in zip(data_tup, markers, letters):
-    correlation_x, correlation_y = ensemble_autocorrelation(data, a)
+    correlation_x, correlation_y = ensemble_autocorrelation_mean(data, a)
 
     ax.plot(correlation_x, correlation_y, marker, ms=4, label=letter)
 

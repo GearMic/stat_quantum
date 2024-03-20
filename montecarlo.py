@@ -20,7 +20,7 @@ def check_nd(array: np.ndarray, n: int):
 def autocorrelation_estimator(obs: np.ndarray, t: int, obs_mean: np.ndarray = None, periodic: bool = False):
     """
     Calculates Eq.(31) from monte carlo errors paper.
-    if obs is 2d, does so individually for each row of obs.
+    if obs is 2d, does so individually for each row of obs (so along axis 1).
     'obs' stands for observable.
     """
 
@@ -39,9 +39,9 @@ def autocorrelation_estimator(obs: np.ndarray, t: int, obs_mean: np.ndarray = No
 
     return np.squeeze(np.mean(obs_correlations, 1))
 
-
-def autocorrelation_range(obs: np.ndarray, N: int, obs_mean: np.ndarray = None, periodic: bool = False):
+def autocorrelation_range_mean(obs: np.ndarray, N: int, obs_mean: np.ndarray = None, periodic: bool = False):
     """
+    DEPRECATED
     calculate autocorrelation for t-values up to N.
     if obs is 2d, then the mean of the correlations is taken for each t.
     """
@@ -53,6 +53,34 @@ def autocorrelation_range(obs: np.ndarray, N: int, obs_mean: np.ndarray = None, 
         corr[t] = np.mean(autocorrelation_estimator(obs, t, obs_mean, periodic))
 
     return np.array(trange), corr
+
+def autocorrelation_range(obs: np.ndarray, N: int, obs_mean: np.ndarray = None, periodic: bool = False):
+    """
+    calculate autocorrelation for t-values up to N (done along axis 1 if obs if 2d).
+    if obs is 2d, then the mean of the correlations is taken for each t.
+    """
+
+    if obs.ndim == 1: rows = 1
+    else: rows = obs.shape[0]
+    trange = range(N)
+
+    corr = np.zeros((rows, N))
+    for t in trange:
+        corr[:, t] = autocorrelation_estimator(obs, t, obs_mean, periodic)
+
+    return np.array(trange), np.squeeze(corr)
+
+def ensemble_autocorrelation_mean(ensemble: np.ndarray, a: float):
+    """
+    DEPRECATED
+    autocorrelation over an ensemble with lattice distance a and periodic boundary conditions.
+    returns array of distance values and array of corresponding correlations.
+    """
+
+    N = int(np.ceil(ensemble.shape[1] / 2))
+    trange, corr = autocorrelation_range_mean(ensemble, N, periodic=True)
+
+    return trange, corr
 
 def ensemble_autocorrelation(ensemble: np.ndarray, a: float):
     """
