@@ -57,7 +57,7 @@ def autocorrelation_range(obs: np.ndarray, N: int, obs_mean: np.ndarray = None, 
 def ensemble_autocorrelation(ensemble: np.ndarray, a: float):
     """
     autocorrelation over an ensemble with lattice distance a and periodic boundary conditions.
-    returns array of distance values and corresponding correlations
+    returns array of distance values and array of corresponding correlations.
     """
 
     N = int(np.ceil(ensemble.shape[1] / 2))

@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import os.path
 import scipy.optimize as optimize
 
-## helper constants
+## helper constants and initialization
+plt.rcParams['font.family'] = 'serif'
 dpi = 300
 col_main = "xkcd:blood orange"
 ms = 4
@@ -169,6 +170,7 @@ plt.savefig('plot/0_plot.png', dpi=dpi)
 
 
 ## B: autocorrelation, C: naive error
+# naive error means error without taking autocorrelation into account
 a = 1.0
 data = np.genfromtxt('autocorrelation.csv', delimiter=',')
 n_bin_plots = 4
@@ -193,27 +195,35 @@ if not float(n_bin_steps).is_integer():
 n_bin_steps = int(n_bin_steps) - 3
 
 # calculate standard deviation for different bin sizes
+bin_plot_xrange = (0, 40)
+bin_plot_yrange = (-0.1, 0.5)
+fig, ax = plt.subplots()
+
 binsize, error = [], []
 for i in range(n_bin_steps+1):
     binsize.append(2**i)
     error.append(np.std(obs)/len(obs))
+
+    # plot autocorrelation over time for some bin sizes
+    if i < n_bin_plots:
+        time, corr = autocorrelation_range(obs, bin_plot_xrange[1]+1, np.mean(obs))
+        ax.plot(time, corr, color=col_main)
+
+    # next bin size
     obs = bin_mean(obs, 2)
 
+ax.set_xlim(bin_plot_xrange)
+ax.set_ylim(bin_plot_yrange)
+ax.set_xlabel("Monte carlo time")
+ax.set_ylabel("Correlation")
+ax.set_title("Correlation for bin sizes " + str(binsize[:n_bin_plots]))
+ax.grid()
+ax.minorticks_on()
+fig.savefig("plot/B_correlation.png", dpi=dpi)
+    
 # plot naive error for the bin sizes
 fig, ax = plt.subplots()
 ax.plot(binsize, error)
 ax.set_xlabel("Bin size")
 ax.set_ylabel("Error")
 fig.savefig('plot/B_error.png', dpi=dpi)
-
-# plot autocorrelation over time for some bin sizes
-for i in range(n_bin_plots):
-    time, corr = autocorrelation_range(obs, 100, np.mean(obs))
-    fig, ax = plt.subplots()
-    ax.plot(time, corr, color=col_main)
-    ax.set_xlabel("Monte carlo time")
-    ax.set_ylabel("Correlation")
-    ax.set_title("Correlation for bin size %i" % 2**i)
-    fig.savefig("plot/B_correlation%i.png" % i, dpi=dpi)
-
-

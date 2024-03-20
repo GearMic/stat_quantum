@@ -81,17 +81,18 @@ int main()
     CUDA_CALL(cudaFreeHost(actions));
 
     // autocorrelation data
-    metropolis_parameters params_1 = params;
-    params_1.N = 100;
-    params_1.N_measure = 1024;
-    params_1.N_montecarlo = 1;
-    params_1.N_markov = 1;
-    params_1.a = 0.5;
-    params_1.Delta = 2.0;
-    params_1.m0 = 0.5;
-    params_1.lambda = 0.0;
-    params_1.mu_sq = 2.0;
-    metropolis_allinone(params_1, "autocorrelation.csv");
+    metropolis_parameters params_A = params;
+    params_A.N = 100;
+    params_A.N_measure = 4096;
+    params_A.N_montecarlo = 1;
+    params_A.N_markov = 1;
+    params_A.a = 0.5;
+    params_A.Delta = 2.0;
+    params_A.Delta = 20.0; // to get more correlation, for visual purposes
+    params_A.m0 = 0.5;
+    params_A.lambda = 0.0;
+    params_A.mu_sq = 2.0;
+    metropolis_allinone(params_A, "autocorrelation.csv");
 
     // Fig 4, 5
     metropolis_parameters params_4_5 = params;
