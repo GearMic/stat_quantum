@@ -7,6 +7,7 @@ import scipy.optimize as optimize
 
 ## helper constants
 dpi = 300
+col_main = "xkcd:blood orange"
 ms = 4
 
 
@@ -170,6 +171,7 @@ plt.savefig('plot/0_plot.png', dpi=dpi)
 ## B: autocorrelation, C: naive error
 a = 1.0
 data = np.genfromtxt('autocorrelation.csv', delimiter=',')
+n_bin_plots = 4
 
 # example observable
 # obs = autocorrelation_estimator(3, data, np.mean(data, 1))
@@ -184,22 +186,34 @@ ax.set_xlabel("$t$")
 ax.set_ylabel("$\\Gamma(t)$")
 fig.savefig('plot/C_correlation.png', dpi=dpi)
 
+# binning
 n_bin_steps = np.log2(len(obs)) # max amount of possible binning steps with bins of size 2
 if not float(n_bin_steps).is_integer():
     print("ERROR: amount of observable values is not a power of 2")
-n_bin_steps = int(n_bin_steps)
+n_bin_steps = int(n_bin_steps) - 3
 
 # calculate standard deviation for different bin sizes
-binsize = [1]
-error = [np.std(obs)]
-for i in range(n_bin_steps):
-    obs = bin_mean(obs, 2)
+binsize, error = [], []
+for i in range(n_bin_steps+1):
     binsize.append(2**i)
-    error.append(np.std(obs))
+    error.append(np.std(obs)/len(obs))
+    obs = bin_mean(obs, 2)
 
+# plot naive error for the bin sizes
 fig, ax = plt.subplots()
 ax.plot(binsize, error)
 ax.set_xlabel("Bin size")
 ax.set_ylabel("Error")
+fig.savefig('plot/B_error.png', dpi=dpi)
 
-fig.savefig('plot/B_error.png')
+# plot autocorrelation over time for some bin sizes
+for i in range(n_bin_plots):
+    time, corr = autocorrelation_range(obs, 100, np.mean(obs))
+    fig, ax = plt.subplots()
+    ax.plot(time, corr, color=col_main)
+    ax.set_xlabel("Monte carlo time")
+    ax.set_ylabel("Correlation")
+    ax.set_title("Correlation for bin size %i" % 2**i)
+    fig.savefig("plot/B_correlation%i.png" % i, dpi=dpi)
+
+
