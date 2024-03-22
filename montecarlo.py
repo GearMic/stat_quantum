@@ -100,18 +100,19 @@ def bin_mean(obs: np.ndarray, size: int):
 
     check_nd(obs, 1)
     n = len(obs)
-    if n % size != 0:
-        print("ERROR: array length not divisible by bin size.")
+    # if n % size != 0:
+    #     print("ERROR: array length not divisible by bin size.")
+    # n_bins = n // size
+    n_bins = np.floor_divide(n, size) 
 
-    obs_binned = np.zeros(n // size)
-    for i in range(n // size):
+    obs_binned = np.zeros(n_bins)
+    for i in range(n_bins):
         bin_start = i*size
         obs_binned[i] = np.mean(obs[bin_start:bin_start+size])
 
     return obs_binned
 
-
-def errors_of_binned(obs: np.ndarray, max_size: int, fig, ax):
+def errors_of_binned(obs: np.ndarray, max_size: int):
     """
     calculates errors of obs for increasing bin size.
     Error calculated as error of mean.

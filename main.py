@@ -48,10 +48,18 @@ theory_y = np.array((0.45, 0.004))
 
 trange, corr = ensemble_autocorrelation(data, a)
 
-# fig, ax = plt.subplots()
-# for i in trange:
-#     ax.plot()
+fig, ax = plt.subplots()
+for t in trange:
+    if t % 5 != 0: continue
+    obs = corr[:, t]
+    binsize, error = errors_of_binned(obs, 500)
+    ax.plot(binsize, error)
+ax.set_xlabel("bin size")
+ax.set_ylabel("naive error")
+ax.set_title("Error over bin size for autocorrelations")
+fig.savefig('plot/6_bin_error.png', dpi=dpi)
 
+binsize = 100 # manual input
 corr_std = 0 # TODO:
 
 correlation_x, correlation_y = trange, np.mean(corr, 0) # remove this
