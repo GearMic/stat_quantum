@@ -109,3 +109,59 @@ def bin_mean(obs: np.ndarray, size: int):
         obs_binned[i] = np.mean(obs[bin_start:bin_start+size])
 
     return obs_binned
+
+
+def errors_of_binned(obs: np.ndarray, max_size: int, fig, ax):
+    """
+    calculates errors of obs for increasing bin size.
+    Error calculated as error of mean.
+    """
+
+    # calculate standard deviation for different bin sizes
+    binsize, error = [i+1 for i in range(max_size)], []
+    for size in binsize:
+        obs_binned = bin_mean(obs, size)
+        error.append(np.std(obs_binned)/len(obs_binned))
+
+    return binsize, error
+
+
+def bin_mean_error_plot_array(fig, ax, observables: np.ndarray):
+    """
+    uses data: 2d array with different observables along axis 1,
+    and different draws of each observable on axis 0.
+    plots errors for increasing bin size. Does so for each observable in the same plot.
+    """
+
+    irange = range(observables.shape[1])
+    for i in irange:
+        obs = observables[:, i]
+    
+"""         # calculate standard deviation for different bin sizes
+        bin_plot_xrange = (0, 40)
+        bin_plot_yrange = (-0.1, 0.5)
+        fig, ax = plt.subplots()
+
+        binsize, error = [], []
+        for i in range(n_bin_steps+1):
+            binsize.append(2**i)
+            error.append(np.std(obs)/len(obs))
+
+            # next bin size
+            obs = bin_mean(obs, 2)
+
+        ax.set_xlim(bin_plot_xrange)
+        ax.set_ylim(bin_plot_yrange)
+        ax.set_xlabel("Monte carlo time")
+        ax.set_ylabel("Correlation")
+        ax.set_title("Correlation for bin sizes " + str(binsize[:n_bin_plots]))
+        ax.grid()
+        ax.minorticks_on()
+        fig.savefig("plot/B_correlation.png", dpi=dpi)
+    
+        # plot naive error for the bin sizes
+        fig, ax = plt.subplots()
+        ax.plot(binsize, error)
+        ax.set_xlabel("Bin size")
+        ax.set_ylabel("Error")
+        fig.savefig('plot/B_error.png', dpi=dpi) """

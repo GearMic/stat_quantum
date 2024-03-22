@@ -47,6 +47,11 @@ theory_x = np.array((0.0, 2.5))
 theory_y = np.array((0.45, 0.004))
 
 trange, corr = ensemble_autocorrelation(data, a)
+
+# fig, ax = plt.subplots()
+# for i in trange:
+#     ax.plot()
+
 corr_std = 0 # TODO:
 
 correlation_x, correlation_y = trange, np.mean(corr, 0) # remove this
